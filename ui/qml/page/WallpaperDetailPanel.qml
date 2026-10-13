@@ -111,10 +111,13 @@ Item {
             return "";
         if (path.indexOf("file://") === 0)
             path = path.slice(7);
-        const i = path.lastIndexOf("/");
-        if (i <= 0)
-            return "";
-        return "file://" + path.slice(0, i).split("/").map(encodeURIComponent).join("/");
+        if ((root.wp?.wpType ?? "") !== "web") {
+            const i = path.lastIndexOf("/");
+            if (i <= 0)
+                return "";
+            path = path.slice(0, i);
+        }
+        return "file://" + path.split("/").map(encodeURIComponent).join("/");
     }
     function openContainerFolder() {
         const url = root.containerFolderUrl(root.wp?.resource);
