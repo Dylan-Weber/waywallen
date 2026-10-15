@@ -184,6 +184,12 @@ auto global_to_map(const proto::GlobalSettings& g) -> QVariantMap {
     }
     m[u"wallpaperSkipContentRatings"_s] = wallpaper_skip_content_ratings;
     m[u"wallpaperHiddenFilter"_s]       = static_cast<int>(g.wallpaperHiddenFilter());
+    if (g.hasWallpaperLibraryVisibility()) {
+        QVariantList ids;
+        for (auto id : g.wallpaperLibraryVisibility().hiddenLibraryIds())
+            ids.append(QVariant::fromValue(static_cast<qint64>(id)));
+        m[u"wallpaperHiddenLibraryIds"_s] = ids;
+    }
     return m;
 }
 
@@ -295,6 +301,14 @@ auto map_to_global(const QVariantMap& m) -> proto::GlobalSettings {
         g.setWallpaperHiddenFilter(
             static_cast<proto::WallpaperHiddenFilter>(m.value(u"wallpaperHiddenFilter"_s).toInt()));
     }
+    if (m.contains(u"wallpaperHiddenLibraryIds"_s)) {
+        auto selection = proto::WallpaperLibraryVisibility {};
+        auto ids       = selection.hiddenLibraryIds();
+        for (const auto& id : m.value(u"wallpaperHiddenLibraryIds"_s).toList())
+            ids.append(id.toLongLong());
+        selection.setHiddenLibraryIds(ids);
+        g.setWallpaperLibraryVisibility(selection);
+    }
     return g;
 }
 
@@ -358,7 +372,7 @@ void SettingsGetQuery::reload() {
 // SettingsSetQuery
 // ---------------------------------------------------------------------------
 
-SettingsSetQuery::SettingsSetQuery(QObject* parent): Query(parent) {}
+SettingsSetQuery::SettingsSetQuery(QObject* parent): Query(parent) { set_use_queue(true); }
 
 auto SettingsSetQuery::global() const -> const QVariantMap& { return m_global; }
 void SettingsSetQuery::setGlobal(const QVariantMap& v) {

@@ -158,6 +158,15 @@ fn entry_from_item(
 pub async fn load_entries(
     db: &DatabaseConnection,
 ) -> Result<Vec<crate::catalog::entry::WallpaperEntry>> {
+    load_entries_excluding_libraries(db, &[]).await
+}
+
+/// Empty IDs hide nothing; unknown positive IDs do not affect existing libraries.
+pub async fn load_entries_excluding_libraries(
+    db: &DatabaseConnection,
+    hidden_library_ids: &[i64],
+) -> Result<Vec<crate::catalog::entry::WallpaperEntry>> {
+    let hidden_library_ids = normalize_library_ids(hidden_library_ids)?;
     let lib_path: HashMap<i64, String> = list_libraries(db)
         .await?
         .into_iter()
@@ -168,7 +177,16 @@ pub async fn load_entries(
         .into_iter()
         .map(|p| (p.id, p.name))
         .collect();
-    let items = list_items_all(db).await?;
+    let mut query = item::Entity::find();
+    if !hidden_library_ids.is_empty() {
+        query = query.filter(item::Column::LibraryId.is_not_in(hidden_library_ids));
+    }
+    let items = query
+        .order_by_asc(item::Column::LibraryId)
+        .order_by_asc(item::Column::Path)
+        .all(db)
+        .await
+        .context("select library items")?;
     Ok(items
         .into_iter()
         .filter_map(|it| {

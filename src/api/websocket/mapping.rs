@@ -1,5 +1,13 @@
 use super::*;
 
+pub(super) fn library_visibility_from_pb(
+    selection: Option<&pb::WallpaperLibraryVisibility>,
+) -> crate::error::Result<Option<Vec<i64>>> {
+    selection
+        .map(|selection| repo::normalize_library_ids(&selection.hidden_library_ids))
+        .transpose()
+}
+
 pub(super) fn filter_rule_from_pb(
     rule: &pb::WallpaperFilterRule,
 ) -> Option<crate::catalog::FilterRule> {
@@ -886,6 +894,9 @@ pub(super) fn global_to_pb(g: &crate::settings::GlobalSettings) -> pb::GlobalSet
         wallpaper_filter_tags: g.wallpaper_filter_tags.clone(),
         wallpaper_skip_content_ratings: g.wallpaper_skip_content_ratings.clone(),
         wallpaper_hidden_filter: wallpaper_hidden_filter_to_pb(g.wallpaper_hidden_filter) as i32,
+        wallpaper_library_visibility: Some(pb::WallpaperLibraryVisibility {
+            hidden_library_ids: g.wallpaper_hidden_library_ids.clone(),
+        }),
         disable_plugin_update_notifications: !g.plugin_update_notifications,
         duplicate_renderers_for_same_wallpaper: g.duplicate_renderers_for_same_wallpaper,
         renderer: Some(pb::GlobalRendererSettings {

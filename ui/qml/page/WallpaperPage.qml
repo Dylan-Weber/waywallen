@@ -12,6 +12,16 @@ MD.Page {
 
     W.WallpaperListQuery {
         id: wallpaperQuery
+        onHiddenLibraryIdsChanged: {
+            if (root._quickFiltersSeeded)
+                root._persistGlobalChange(g => {});
+        }
+    }
+
+    QtObject {
+        id: libraryVisibilityState
+        readonly property W.WallpaperListQuery query: wallpaperQuery
+        readonly property bool ready: root._quickFiltersSeeded
     }
 
     W.WallpaperSelectStorage {
@@ -320,7 +330,7 @@ MD.Page {
         id: filterAction
         icon.name: MD.Token.icon.filter_list
         text: qsTr("Filters")
-        checked: wallpaperQuery.hasActiveFilters
+        checked: wallpaperQuery.hasOtherFilters
         onTriggered: {
             if (root.filterPresentation?.active)
                 return;
@@ -332,12 +342,16 @@ MD.Page {
         id: sourcesAction
         icon.name: MD.Token.icon.hard_drive
         text: qsTr("Library Manager")
+        checked: wallpaperQuery.hiddenLibraryIds.length > 0
         property var presentation: null
         onTriggered: {
             if (presentation?.active)
                 return;
             presentation = root.Window.window.presentPopup('waywallen.ui/PagePopup', {
-                source: 'waywallen.ui/SourceManagePage'
+                source: 'waywallen.ui/SourceManagePage',
+                props: {
+                    visibilityState: libraryVisibilityState
+                }
             });
         }
     }
@@ -404,6 +418,7 @@ MD.Page {
                 wallpaperQuery.filterTags = global.wallpaperFilterTags || [];
                 wallpaperQuery.skipContentRatings = global.wallpaperSkipContentRatings || [];
                 wallpaperQuery.hiddenFilter = Number(global.wallpaperHiddenFilter || 0);
+                wallpaperQuery.hiddenLibraryIds = global.wallpaperHiddenLibraryIds || [];
                 root._quickFiltersSeeded = true;
             }
             const filters = global.wallpaperFilters || [];
@@ -553,6 +568,8 @@ MD.Page {
             return;
         const nextGlobal = Object.assign({}, filterSettingsGet.global);
         mutator(nextGlobal);
+        if (root._quickFiltersSeeded)
+            nextGlobal.wallpaperHiddenLibraryIds = wallpaperQuery.hiddenLibraryIds;
         filterSettingsSet.global = nextGlobal;
         filterSettingsSet.plugins = filterSettingsGet.plugins;
         filterSettingsSet.reload();

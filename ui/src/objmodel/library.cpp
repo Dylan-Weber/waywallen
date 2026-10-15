@@ -100,8 +100,9 @@ void LibraryManager::replaceAll(const QList<proto::LibraryInstance>& list) {
         return a->id() < b->id();
     });
 
-    m_ordered = std::move(next_ordered);
-    m_by_id   = std::move(next_by_id);
+    m_ordered     = std::move(next_ordered);
+    m_by_id       = std::move(next_by_id);
+    m_initialized = true;
     Q_EMIT librariesChanged();
 }
 

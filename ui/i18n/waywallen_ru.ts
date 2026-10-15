@@ -2126,6 +2126,26 @@ Related display: #%1</source>
 <context>
     <name>SourceManagePage</name>
     <message>
+        <source>Removed source #%1</source>
+        <translation>Удалённый источник №%1</translation>
+    </message>
+    <message>
+        <source>Clear hidden state</source>
+        <translation>Сбросить скрытие</translation>
+    </message>
+    <message>
+        <source>Hide source</source>
+        <translation>Скрыть источник</translation>
+    </message>
+    <message>
+        <source>Show source</source>
+        <translation>Показать источник</translation>
+    </message>
+    <message>
+        <source>Remove library</source>
+        <translation>Удалить библиотеку</translation>
+    </message>
+    <message>
         <location filename="../qml/page/SourceManagePage.qml" line="10"/>
         <source>Library Manager</source>
         <translation>Менеджер библиотек</translation>

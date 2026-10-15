@@ -2238,6 +2238,26 @@ Betroffener Bildschirm: #%1</translation>
 <context>
     <name>SourceManagePage</name>
     <message>
+        <source>Removed source #%1</source>
+        <translation>Entfernte Quelle #%1</translation>
+    </message>
+    <message>
+        <source>Clear hidden state</source>
+        <translation>Ausblendung aufheben</translation>
+    </message>
+    <message>
+        <source>Hide source</source>
+        <translation>Quelle ausblenden</translation>
+    </message>
+    <message>
+        <source>Show source</source>
+        <translation>Quelle anzeigen</translation>
+    </message>
+    <message>
+        <source>Remove library</source>
+        <translation>Bibliothek entfernen</translation>
+    </message>
+    <message>
         <location filename="../qml/page/SourceManagePage.qml" line="10"/>
         <source>Library Manager</source>
         <translation>Bibliotheksverwaltung</translation>

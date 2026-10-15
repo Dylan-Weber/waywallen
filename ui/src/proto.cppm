@@ -69,6 +69,7 @@ using proto::WallpaperHideRequest;
 using proto::WallpaperHideResponse;
 using proto::WallpaperLayoutSetRequest;
 using proto::WallpaperLayoutSetResponse;
+using proto::WallpaperLibraryVisibility;
 using proto::WallpaperListRequest;
 using proto::WallpaperListResponse;
 using proto::WallpaperLookupRequest;

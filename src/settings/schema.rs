@@ -548,6 +548,9 @@ pub struct GlobalSettings {
     pub wallpaper_hidden_filter: WallpaperHiddenFilter,
 
     #[serde(default)]
+    pub wallpaper_hidden_library_ids: Vec<i64>,
+
+    #[serde(default)]
     pub auto_attach_playlist_id: Option<i64>,
 
     pub plugin_update_notifications: bool,
@@ -588,6 +591,7 @@ impl Default for GlobalSettings {
             wallpaper_filter_tags: Vec::new(),
             wallpaper_skip_content_ratings: Vec::new(),
             wallpaper_hidden_filter: WallpaperHiddenFilter::Exclude,
+            wallpaper_hidden_library_ids: Vec::new(),
             auto_attach_playlist_id: None,
             plugin_update_notifications: true,
             duplicate_renderers_for_same_wallpaper: false,

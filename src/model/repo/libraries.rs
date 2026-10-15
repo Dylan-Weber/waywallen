@@ -2,6 +2,18 @@ use super::*;
 
 // library
 
+pub fn normalize_library_ids(ids: &[i64]) -> Result<Vec<i64>> {
+    if ids.iter().any(|id| *id <= 0) {
+        return Err(Error::InvalidArgument(
+            "library IDs must be positive".into(),
+        ));
+    }
+    let mut ids = ids.to_vec();
+    ids.sort_unstable();
+    ids.dedup();
+    Ok(ids)
+}
+
 pub fn expand_home_path(path: &str) -> String {
     let Some(rest) = path.strip_prefix('~') else {
         return path.to_owned();

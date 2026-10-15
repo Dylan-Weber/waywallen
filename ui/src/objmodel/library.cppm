@@ -64,6 +64,7 @@ class LibraryManager : public QObject {
 
     Q_PROPERTY(QVariantList libraries READ libraries NOTIFY librariesChanged FINAL)
     Q_PROPERTY(int count READ count NOTIFY librariesChanged FINAL)
+    Q_PROPERTY(bool initialized READ initialized NOTIFY librariesChanged FINAL)
 
 public:
     LibraryManager(QObject* parent = nullptr);
@@ -75,6 +76,7 @@ public:
     /// `Library*`, suitable for QML `Repeater { model: LibraryManager.libraries }`.
     auto libraries() const -> QVariantList;
     auto count() const -> int { return (int)m_ordered.size(); }
+    auto initialized() const -> bool { return m_initialized; }
 
     Q_INVOKABLE waywallen::Library* get(qint64 id) const;
 
@@ -101,6 +103,7 @@ private:
 
     QList<Library*>            m_ordered; // sorted by id
     std::map<qint64, Library*> m_by_id;
+    bool                       m_initialized { false };
 };
 
 } // namespace waywallen

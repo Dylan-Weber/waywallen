@@ -1,6 +1,44 @@
 use super::*;
 
 #[test]
+fn library_visibility_presence_and_validation() {
+    use prost::Message;
+    let absent =
+        pb::GlobalSettings::decode(pb::GlobalSettings::default().encode_to_vec().as_slice())
+            .unwrap();
+    assert_eq!(
+        library_visibility_from_pb(absent.wallpaper_library_visibility.as_ref()).unwrap(),
+        None
+    );
+    // The former include-only selection used tag 30, with packed library_ids at tag 1.
+    let legacy = pb::GlobalSettings::decode(&[0xf2, 0x01, 0x03, 0x0a, 0x01, 0x02][..]).unwrap();
+    assert!(legacy.wallpaper_library_visibility.is_none());
+    let mut settings = crate::settings::GlobalSettings::default();
+    settings.wallpaper_hidden_library_ids = vec![9, 2, 9];
+    let encoded = global_to_pb(&settings).encode_to_vec();
+    let decoded = pb::GlobalSettings::decode(encoded.as_slice()).unwrap();
+    assert_eq!(
+        library_visibility_from_pb(decoded.wallpaper_library_visibility.as_ref()).unwrap(),
+        Some(vec![2, 9])
+    );
+    settings.wallpaper_hidden_library_ids.clear();
+    let decoded =
+        pb::GlobalSettings::decode(global_to_pb(&settings).encode_to_vec().as_slice()).unwrap();
+    assert_eq!(
+        library_visibility_from_pb(decoded.wallpaper_library_visibility.as_ref()).unwrap(),
+        Some(vec![])
+    );
+    for id in [0, -1] {
+        assert!(
+            library_visibility_from_pb(Some(&pb::WallpaperLibraryVisibility {
+                hidden_library_ids: vec![id]
+            }))
+            .is_err()
+        );
+    }
+}
+
+#[test]
 fn auto_replay_scope_roundtrip_and_invalid_writes() {
     for scope in [
         crate::settings::AutoScope::CurrentDisplay,

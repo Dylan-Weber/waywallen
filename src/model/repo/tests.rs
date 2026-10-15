@@ -31,6 +31,94 @@ async fn mem_db() -> DatabaseConnection {
     connect_url("sqlite::memory:").await.unwrap()
 }
 
+#[tokio::test]
+async fn library_visibility_excludes_only_hidden_ids() {
+    let db = mem_db().await;
+    let p1 = upsert_plugin(&db, "library-a", "1").await.unwrap();
+    let p2 = upsert_plugin(&db, "library-b", "1").await.unwrap();
+    let a = add_library(&db, p1.id, "/shared").await.unwrap();
+    let b = add_library(&db, p2.id, "/shared").await.unwrap();
+    let c = add_library(&db, p1.id, "/other").await.unwrap();
+    for (plugin, library) in [(p1.id, a.id), (p2.id, b.id), (p1.id, c.id)] {
+        upsert_item(&db, minimal_args(plugin, library, "same.png", "image"))
+            .await
+            .unwrap();
+    }
+    assert_eq!(
+        load_entries_excluding_libraries(&db, &[])
+            .await
+            .unwrap()
+            .len(),
+        3
+    );
+    let entries = load_entries_excluding_libraries(&db, &[b.id, b.id])
+        .await
+        .unwrap();
+    assert_eq!(entries.len(), 2);
+    assert!(entries.iter().all(|entry| entry.plugin_name == "library-a"));
+    assert_eq!(
+        load_entries_excluding_libraries(&db, &[a.id, b.id])
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(load_entries_excluding_libraries(&db, &[a.id, b.id, c.id])
+        .await
+        .unwrap()
+        .is_empty());
+    assert_eq!(
+        load_entries_excluding_libraries(&db, &[999])
+            .await
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(
+        load_entries_excluding_libraries(&db, &[999, a.id])
+            .await
+            .unwrap()
+            .len(),
+        2
+    );
+    for id in [0, -1] {
+        assert!(matches!(
+            load_entries_excluding_libraries(&db, &[id]).await,
+            Err(Error::InvalidArgument(_))
+        ));
+    }
+    remove_library(&db, c.id).await.unwrap();
+    let replacement = add_library(&db, p1.id, "/other").await.unwrap();
+    assert!(replacement.id > c.id);
+    upsert_item(
+        &db,
+        minimal_args(p1.id, replacement.id, "same.png", "image"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        load_entries_excluding_libraries(&db, &[c.id])
+            .await
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(
+        load_entries_excluding_libraries(&db, &[a.id, b.id, c.id])
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        load_entries_excluding_libraries(&db, &[])
+            .await
+            .unwrap()
+            .len(),
+        3
+    );
+}
+
 fn minimal_args<'a>(
     plugin_id: i64,
     library_id: i64,

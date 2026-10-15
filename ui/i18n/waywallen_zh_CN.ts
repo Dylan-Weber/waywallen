@@ -2127,6 +2127,26 @@ Related display: #%1</source>
 <context>
     <name>SourceManagePage</name>
     <message>
+        <source>Removed source #%1</source>
+        <translation>已移除的来源 #%1</translation>
+    </message>
+    <message>
+        <source>Clear hidden state</source>
+        <translation>清除隐藏状态</translation>
+    </message>
+    <message>
+        <source>Hide source</source>
+        <translation>隐藏来源</translation>
+    </message>
+    <message>
+        <source>Show source</source>
+        <translation>显示来源</translation>
+    </message>
+    <message>
+        <source>Remove library</source>
+        <translation>移除库</translation>
+    </message>
+    <message>
         <location filename="../qml/page/SourceManagePage.qml" line="10"/>
         <source>Library Manager</source>
         <translation>库管理器</translation>

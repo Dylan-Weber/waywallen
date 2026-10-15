@@ -424,7 +424,12 @@ pub(super) async fn dispatch_inner(
             );
             // Entries come straight from the DB (the read source of
             // truth), fully populated — no in-memory snapshot.
-            let all_entries = repo::load_entries(&state.db).await?;
+            let hidden_library_ids = r
+                .library_visibility
+                .as_ref()
+                .map_or(&[][..], |selection| selection.hidden_library_ids.as_slice());
+            let all_entries =
+                repo::load_entries_excluding_libraries(&state.db, hidden_library_ids).await?;
 
             let mut raw_entries: Vec<&crate::catalog::entry::WallpaperEntry> = all_entries
                 .iter()
@@ -1982,6 +1987,11 @@ pub(super) async fn dispatch_inner(
                 .and_then(|g| g.auto_replay.as_ref())
                 .map(auto_replay_from_pb)
                 .transpose()?;
+            let new_library_ids = library_visibility_from_pb(
+                r.global
+                    .as_ref()
+                    .and_then(|g| g.wallpaper_library_visibility.as_ref()),
+            )?;
             let previous_settings = state.settings.snapshot();
             let previous_filter = previous_settings.global.wallpaper_filter.clone();
             let prev_layout = previous_settings.global.layout.clone();
@@ -2018,6 +2028,9 @@ pub(super) async fn dispatch_inner(
                         g.wallpaper_skip_content_ratings.clone();
                     s.global.wallpaper_hidden_filter =
                         wallpaper_hidden_filter_from_pb(g.wallpaper_hidden_filter);
+                    if let Some(ids) = new_library_ids.as_ref() {
+                        s.global.wallpaper_hidden_library_ids = ids.clone();
+                    }
                     if let Some(ld) = g.layout_defaults.as_ref() {
                         if let Some(fm) = fillmode_from_pb(ld.fillmode) {
                             s.global.layout.fillmode = fm;

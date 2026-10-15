@@ -554,6 +554,11 @@ message WallpaperEntry {
   bool hidden = 21;
 }
 
+message WallpaperLibraryVisibility {
+  // Empty hides no libraries, including remotely managed libraries.
+  repeated int64 hidden_library_ids = 1;
+}
+
 message WallpaperListRequest {
   string wp_type = 1; // empty = all
   // Page-based pagination. page is 0-indexed; page_size = 0 means "no
@@ -579,6 +584,9 @@ message WallpaperListRequest {
   repeated string skip_content_ratings = 11;
   // How to treat wallpapers marked hidden. Default EXCLUDE.
   WallpaperHiddenFilter hidden_filter = 12;
+  reserved 13;
+  reserved "library_selection";
+  WallpaperLibraryVisibility library_visibility = 14;
 }
 
 // Library-browser filter for the per-item `hidden` flag.
@@ -1660,6 +1668,10 @@ message GlobalSettings {
   // How the library browser treats wallpapers marked hidden. Persisted.
   // Default EXCLUDE.
   WallpaperHiddenFilter wallpaper_hidden_filter = 29;
+  reserved 30;
+  reserved "wallpaper_library_selection";
+  // Absent preserves hidden libraries; a present empty message shows all.
+  WallpaperLibraryVisibility wallpaper_library_visibility = 31;
 
   // Canonical automatic replay policy.
   AutoReplayPolicy auto_replay = 16;
