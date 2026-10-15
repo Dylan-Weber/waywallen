@@ -182,6 +182,7 @@ pub async fn refresh_source_plugins(app: &Arc<DaemonContext>) {
 }
 
 pub async fn refresh_sources(app: &Arc<DaemonContext>) -> Result<usize> {
+    let _invalidate = super::wallpaper_query::InvalidateOnDrop(app.wallpaper_changes.clone());
     use std::sync::atomic::Ordering;
     app.scan_in_progress.store(true, Ordering::SeqCst);
     // Sync start is observable to UIs via `StatusSync.scan_in_progress`.
@@ -205,16 +206,19 @@ pub async fn refresh_sources(app: &Arc<DaemonContext>) -> Result<usize> {
 }
 
 pub async fn notify_wallpaper_db_changed(app: &Arc<DaemonContext>, count: usize) {
+    app.wallpaper_changes
+        .send_modify(|generation| *generation += 1);
     app.queue.lock().await.reset_shuffle_round();
 
     let probe = app.probe.clone();
     let db = app.db.clone();
+    let changes = app.wallpaper_changes.clone();
     app.tasks.spawn_async_unique(
         crate::tasks::TaskKind::Generic,
         "probe/refresh",
         "probe/post-db-change",
         async move {
-            crate::probe::task::run_pending(&db, probe)
+            crate::probe::task::run_pending_notifying(&db, probe, Some(&changes))
                 .await
                 .map(|_| ())
                 .map_err(anyhow::Error::from)
@@ -298,6 +302,8 @@ async fn refresh_sources_inner(app: &Arc<DaemonContext>) -> Result<usize> {
             ),
             Err(e) => log::warn!("sync plugin={} failed: {e:#}", info.name),
         }
+        app.wallpaper_changes
+            .send_modify(|generation| *generation += 1);
     }
 
     // Scan results are now persisted in the DB (the read source of
@@ -312,12 +318,13 @@ async fn refresh_sources_inner(app: &Arc<DaemonContext>) -> Result<usize> {
     // collapses refresh bursts into one in-flight pass.
     let probe = app.probe.clone();
     let db = app.db.clone();
+    let changes = app.wallpaper_changes.clone();
     app.tasks.spawn_async_unique(
         crate::tasks::TaskKind::Generic,
         "probe/refresh",
         "probe/post-refresh",
         async move {
-            crate::probe::task::run_pending(&db, probe)
+            crate::probe::task::run_pending_notifying(&db, probe, Some(&changes))
                 .await
                 .map(|_| ())
                 .map_err(anyhow::Error::from)

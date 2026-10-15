@@ -804,8 +804,19 @@ impl WallpaperFilterState {
                         FilterPredicate::WallpaperType { value, condition }
                     }
                     3 => {
-                        let (value, condition) = string()?;
-                        FilterPredicate::Library { value, condition }
+                        let filter = rule.int_filter.as_ref()?;
+                        if filter.value <= 0 {
+                            return None;
+                        }
+                        let exclude = match filter.condition {
+                            1 => false,
+                            2 => true,
+                            _ => return None,
+                        };
+                        FilterPredicate::Library {
+                            value: filter.value,
+                            exclude,
+                        }
                     }
                     5 => {
                         let (value, condition) = int()?;
@@ -899,11 +910,11 @@ impl WallpaperFilterState {
                                 condition: string_code(*condition),
                             });
                         }
-                        FilterPredicate::Library { value, condition } => {
+                        FilterPredicate::Library { value, exclude } => {
                             state.r#type = 3;
-                            state.string_filter = Some(WallpaperStringFilterState {
-                                value: value.clone(),
-                                condition: string_code(*condition),
+                            state.int_filter = Some(WallpaperIntFilterState {
+                                value: *value,
+                                condition: if *exclude { 2 } else { 1 },
                             });
                         }
                         FilterPredicate::Width { value, condition } => {

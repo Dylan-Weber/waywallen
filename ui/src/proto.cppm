@@ -55,6 +55,8 @@ using proto::RendererPluginListResponse;
 using proto::SettingSchema;
 using proto::WallpaperTypeInfo;
 
+using proto::CuratedPlaylistSource;
+using proto::PlaylistSource;
 using proto::PresentationTarget;
 using proto::WallpaperApplyRequest;
 using proto::WallpaperApplyResponse;
@@ -83,6 +85,7 @@ using proto::WallpaperRemoveRequest;
 using proto::WallpaperRemoveResponse;
 using proto::WallpaperScanRequest;
 using proto::WallpaperScanResponse;
+using proto::WallpaperSelection;
 using proto::WallpaperSyncFinished;
 using proto::WallpaperUnsubscribeRequest;
 using proto::WallpaperUnsubscribeResponse;

@@ -40,6 +40,7 @@ export class WallpaperListQuery
     Q_PROPERTY(QList<qlonglong> hiddenLibraryIds READ hiddenLibraryIds WRITE setHiddenLibraryIds
                    NOTIFY hiddenLibraryIdsChanged FINAL)
     Q_PROPERTY(qint32 total READ total NOTIFY totalChanged FINAL)
+    Q_PROPERTY(QVariant selection READ selection NOTIFY selectionChanged FINAL)
 
 public:
     WallpaperListQuery(QObject* parent = nullptr);
@@ -79,7 +80,11 @@ public:
     void             setHiddenLibraryIds(const QList<qlonglong>&);
     Q_INVOKABLE void toggleLibraryHidden(qlonglong id);
 
-    auto total() const -> qint32;
+    auto             total() const -> qint32;
+    auto             selection() const -> QVariant;
+    Q_INVOKABLE void restoreSelection(const QVariant&);
+    Q_INVOKABLE bool matchesSelection(const QVariant&) const;
+    Q_SIGNAL void    selectionChanged();
 
     void reload() override;
     void fetchMore(qint32) override;

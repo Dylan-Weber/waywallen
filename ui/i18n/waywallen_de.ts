@@ -97,6 +97,10 @@
 <context>
     <name>AddToPlaylistSheetContent</name>
     <message>
+        <source>No manual playlists found</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../qml/page/wallpaper/AddToPlaylistSheetContent.qml" line="25"/>
         <source>Add to playlist</source>
         <translation>Zur Wiedergabeliste hinzufügen</translation>
@@ -871,6 +875,38 @@
 <context>
     <name>PlaylistEditPage</name>
     <message>
+        <source>Smart playlist</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Wallpapers matching these filters are updated automatically.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Default order</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Last modified</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reverse order</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Waiting for matching wallpapers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../qml/page/PlaylistEditPage.qml" line="14"/>
         <source>Edit playlist</source>
         <translation>Wiedergabeliste bearbeiten</translation>
@@ -968,6 +1004,14 @@
 </context>
 <context>
     <name>PlaylistListSheet</name>
+    <message>
+        <source>Create smart playlist</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Smart playlist</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message>
         <location filename="../qml/page/wallpaper/PlaylistListSheet.qml" line="22"/>
         <source>Hidden wallpapers</source>
@@ -2443,6 +2487,10 @@ Ungespeicherter Bildzustand kann verloren gehen.</translation>
 <context>
     <name>StringFilter</name>
     <message>
+        <source>Apply</source>
+        <translation>Anwenden</translation>
+    </message>
+    <message>
         <location filename="../qml/component/filter/StringFilter.qml" line="16"/>
         <source>contains</source>
         <translation>enthält</translation>
@@ -2793,6 +2841,10 @@ Ungespeicherter Bildzustand kann verloren gehen.</translation>
 <context>
     <name>WallpaperFilter</name>
     <message>
+        <source>Library</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../qml/component/filter/WallpaperFilter.qml" line="25"/>
         <source>Name</source>
         <translation>Name</translation>
@@ -2835,6 +2887,14 @@ Ungespeicherter Bildzustand kann verloren gehen.</translation>
 </context>
 <context>
     <name>WallpaperFilterDialog</name>
+    <message>
+        <source>Clear rules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add group</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message>
         <location filename="../qml/dialog/WallpaperFilterDialog.qml" line="10"/>
         <source>Filters</source>
@@ -3444,6 +3504,37 @@ Ungespeicherter Bildzustand kann verloren gehen.</translation>
         <location filename="../src/tray_i18n.cpp" line="23"/>
         <source>Unmute</source>
         <translation>Stummschaltung aufheben</translation>
+    </message>
+</context>
+<context>
+    <name>LibraryFilter</name>
+    <message>
+        <source>includes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>excludes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unavailable library #%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select library</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+
+<context>
+    <name>WallpaperFilterRules</name>
+    <message>
+        <source>Add rule</source>
+        <translation>Regel hinzufügen</translation>
+    </message>
+    <message>
+        <source>Delete group</source>
+        <translation>Gruppe löschen</translation>
     </message>
 </context>
 </TS>

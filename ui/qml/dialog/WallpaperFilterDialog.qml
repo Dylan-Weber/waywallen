@@ -73,9 +73,15 @@ MD.Dialog {
     onClosed: root.filterTagPresentation?.close()
     Component.onDestruction: root.filterTagPresentation?.cancel()
 
-    contentItem: MD.VerticalListView {
+    contentItem: W.WallpaperFilterRules {
         id: rulesView
         model: root.model
+        popupWindow: root.popupWindow
+        supportedTypes: root.supportedTypes
+        typeLabels: root.typeLabels
+        allTags: tagListQuery.tags
+        valueLabels: root.valueLabels
+        allContentRatings: ratingListQuery.ratings
         implicitHeight: Math.min(contentHeight, 480)
         spacing: 2
 
@@ -229,70 +235,16 @@ MD.Dialog {
                     }
                     MD.IconButton {
                         icon.name: MD.Token.icon.clear_all
-                        onClicked: root.model.removeRows(0, root.model.rowCount())
+                        onClicked: {
+                            root.model.removeRows(0, root.model.rowCount());
+                            root.model.filterLogics = [];
+                        }
                     }
                     MD.IconButton {
-                        icon.name: MD.Token.icon.add
+                        icon.name: MD.Token.icon.add_box
                         onClicked: root.model.appendNewGroup()
                     }
                 }
-            }
-        }
-
-        delegate: W.WallpaperFilter {
-            width: ListView.view.width
-            popupWindow: root.popupWindow
-            supportedTypes: root.supportedTypes
-            typeLabels: root.typeLabels
-            allTags: tagListQuery.tags
-            valueLabels: root.valueLabels
-            allContentRatings: ratingListQuery.ratings
-        }
-
-        section.property: "group"
-        section.criteria: ViewSection.FullString
-        section.delegate: RowLayout {
-            id: sectionRow
-            width: ListView.view.contentWidth
-            spacing: 8
-            required property string section
-            readonly property int groupId: parseInt(section, 10)
-            readonly property int sectionIndex: root.model ? root.model.sectionIndexForGroup(groupId) : -1
-            readonly property int currentOp: root.model && sectionIndex > 0 ? root.model.logicOpAt(sectionIndex) : -1
-
-            MD.Label {
-                Layout.fillWidth: true
-                text: qsTr("Group %1").arg(sectionRow.sectionIndex + 1)
-                typescale: MD.Token.typescale.label_medium
-            }
-
-            MD.SegmentedButtonGroup {
-                visible: sectionRow.sectionIndex > 0
-
-                MD.SegmentedButton {
-                    mdState.size: MD.Enum.XS
-                    text: qsTr("AND")
-                    checked: sectionRow.currentOp !== WC.LogicOp.LOGIC_OP_OR
-                    onClicked: root.model.setLogicOpAt(sectionRow.sectionIndex, WC.LogicOp.LOGIC_OP_AND)
-                }
-
-                MD.SegmentedButton {
-                    mdState.size: MD.Enum.XS
-                    text: qsTr("OR")
-                    checked: sectionRow.currentOp === WC.LogicOp.LOGIC_OP_OR
-                    onClicked: root.model.setLogicOpAt(sectionRow.sectionIndex, WC.LogicOp.LOGIC_OP_OR)
-                }
-            }
-
-            MD.IconButton {
-                mdState.size: MD.Enum.XS
-                icon.name: MD.Token.icon.add
-                onClicked: root.model.appendRuleInGroup(sectionRow.groupId)
-            }
-            MD.IconButton {
-                mdState.size: MD.Enum.XS
-                icon.name: MD.Token.icon.delete
-                onClicked: root.model.deleteGroup(sectionRow.groupId)
             }
         }
     }

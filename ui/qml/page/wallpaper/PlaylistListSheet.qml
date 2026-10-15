@@ -35,6 +35,14 @@ MD.BottomSheet {
         onTriggered: control.sheetState.createPlaylist()
     }
 
+    MD.Action {
+        id: createSmartPlaylistAction
+        text: qsTr("Create smart playlist")
+        icon.name: MD.Token.icon.filter_plus
+        enabled: !control.sheetState.mutationQuerying
+        onTriggered: control.sheetState.createSmartPlaylist()
+    }
+
     ColumnLayout {
         width: control.sheetWidth
         spacing: 0
@@ -65,7 +73,7 @@ MD.BottomSheet {
 
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                actions: [hiddenWallpapersAction, createPlaylistAction]
+                actions: [hiddenWallpapersAction, createPlaylistAction, createSmartPlaylistAction]
                 iconDelegate: MD.BusyIconButton {
                     id: actionButton
                     action: MD.ToolBarLayout.action
@@ -128,7 +136,7 @@ MD.BottomSheet {
                 width: ListView.view.contentWidth
                 radius: 12
                 text: modelData.name || qsTr("Untitled")
-                supportText: qsTr("%n wallpaper(s)", "", (modelData.entryIds || []).length)
+                supportText: control.sheetState.playlistRuntimeText(modelData) || ((modelData.sourceKind === "smart" ? qsTr("Smart playlist") + " · " : "") + qsTr("%n wallpaper(s)", "", modelData.itemCount || 0))
                 heightMode: playingDisplayLabels.length > 0 ? MD.Enum.ListItemThreeLine : MD.Enum.ListItemTwoLine
                 readonly property bool playingOnSelectedTargets: control.sheetState.playlistIsPlayingOnSelectedTargets(modelData)
                 readonly property var playingDisplayLabels: control.sheetState.playlistDisplayLabels(modelData)
@@ -180,6 +188,7 @@ MD.BottomSheet {
                     }
 
                     MD.IconButton {
+                        visible: playlistSheetItem.modelData.sourceKind !== "smart"
                         enabled: !control.sheetState.mutationQuerying
                         icon.name: MD.Token.icon.edit_note
                         onClicked: control.sheetState.editPlaylistItems(playlistSheetItem.modelData)

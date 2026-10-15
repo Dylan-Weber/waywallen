@@ -252,6 +252,57 @@ fn catalog_query_wire_mapping_round_trips() {
     assert_eq!(sort_rule_from_pb(&sort_rule_to_pb(&sort)), Some(sort));
 }
 
+#[test]
+fn library_filter_rules_round_trip_and_reject_invalid() {
+    use crate::catalog::query::{FilterPredicate, FilterRule, WallpaperSelection};
+    use crate::model::playlist_source::PlaylistSource;
+    use crate::settings::WallpaperFilterState;
+
+    for exclude in [false, true] {
+        let rule = FilterRule {
+            group: 0,
+            predicate: FilterPredicate::Library { value: 42, exclude },
+        };
+        let wire = filter_rule_to_pb(&rule);
+        assert_eq!(filter_rule_from_pb(&wire), Some(rule.clone()));
+        let state = WallpaperFilterState::from_catalog(&[rule.clone()], &[]);
+        assert_eq!(state.to_catalog().0, vec![rule.clone()]);
+        let stored = serde_json::to_string(&state).unwrap();
+        let loaded: WallpaperFilterState = serde_json::from_str(&stored).unwrap();
+        assert_eq!(loaded.to_catalog().0, vec![rule.clone()]);
+        let source = PlaylistSource::Smart(WallpaperSelection {
+            filters: vec![rule],
+            ..Default::default()
+        });
+        assert_eq!(
+            PlaylistSource::decode_selection(&source.encode_selection().unwrap().unwrap()).unwrap(),
+            source
+        );
+    }
+
+    for (value, condition) in [(0, 1), (-1, 1), (42, 0), (42, 3), (42, 99)] {
+        let wire = pb::WallpaperFilterRule {
+            r#type: pb::WallpaperFilterType::Library as i32,
+            group: 0,
+            payload: Some(pb::wallpaper_filter_rule::Payload::IntFilter(
+                pb::WallpaperIntFilter { value, condition },
+            )),
+        };
+        assert!(filter_rule_from_pb(&wire).is_none());
+    }
+    let legacy = pb::WallpaperFilterRule {
+        r#type: pb::WallpaperFilterType::Library as i32,
+        group: 0,
+        payload: Some(pb::wallpaper_filter_rule::Payload::StringFilter(
+            pb::WallpaperStringFilter {
+                value: "/same".into(),
+                condition: pb::StringCondition::Is as i32,
+            },
+        )),
+    };
+    assert!(filter_rule_from_pb(&legacy).is_none());
+}
+
 fn health_response(request_id: u64) -> pb::Response {
     ok_response(
         request_id,
@@ -387,4 +438,44 @@ async fn response_task_cancels_pending_dispatch() {
         Err(mpsc::error::TryRecvError::Empty | mpsc::error::TryRecvError::Disconnected)
     ));
     while requests.join_next().await.is_some() {}
+}
+#[test]
+fn smart_playlist_source_validation_and_roundtrip() {
+    use crate::catalog::query::{HiddenFilter, WallpaperSelection};
+    use crate::model::playlist_source::PlaylistSource;
+    for hidden in [
+        HiddenFilter::Exclude,
+        HiddenFilter::Only,
+        HiddenFilter::Include,
+    ] {
+        let source = PlaylistSource::Smart(WallpaperSelection {
+            hidden,
+            ..Default::default()
+        });
+        let wire = playlist_source_to_pb(&source);
+        assert_eq!(playlist_source_from_pb(Some(&wire), &[]).unwrap(), source);
+        assert!(playlist_source_from_pb(Some(&wire), &["1".into()]).is_err());
+    }
+    assert!(playlist_source_from_pb(Some(&pb::PlaylistSource::default()), &[]).is_err());
+    assert!(playlist_source_from_pb(None, &["invalid".into()]).is_err());
+    assert!(playlist_source_from_pb(None, &["0".into()]).is_err());
+    let mut request = pb::WallpaperListRequest::default();
+    request.filters.push(pb::WallpaperFilterRule {
+        r#type: 1000,
+        ..Default::default()
+    });
+    assert!(selection_from_request(&request).is_err());
+    request.filters.clear();
+    request.filter_logics.push(pb::FilterLogic {
+        op: 1,
+        group_a: 0,
+        group_b: 1,
+    });
+    assert!(selection_from_request(&request).is_err());
+    request.filter_logics.clear();
+    request.sorts.push(pb::WallpaperSortRule {
+        key: 1,
+        direction: 99,
+    });
+    assert!(selection_from_request(&request).is_err());
 }

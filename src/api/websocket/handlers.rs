@@ -119,6 +119,28 @@ pub(super) async fn dispatch_inner(
     use pb::request::Payload as Req;
     use pb::response::Payload as Res;
 
+    let _playlist_edit = if matches!(
+        &payload,
+        Req::PlaylistCreate(_)
+            | Req::PlaylistUpdate(_)
+            | Req::PlaylistDelete(_)
+            | Req::PlaylistRename(_)
+            | Req::PlaylistSetItems(_)
+            | Req::PlaylistSetMode(_)
+            | Req::PlaylistSetInterval(_)
+    ) {
+        Some(state.playlist_mutation.lock().await)
+    } else {
+        None
+    };
+    let _invalidate = if matches!(&payload, Req::WallpaperHide(_) | Req::LibraryRemove(_)) {
+        Some(application::wallpaper_query::InvalidateOnDrop(
+            state.wallpaper_changes.clone(),
+        ))
+    } else {
+        None
+    };
+
     Ok(match payload {
         Req::Health(_) => Res::Health(pb::HealthResponse {
             service: "waywallen".into(),
@@ -422,130 +444,16 @@ pub(super) async fn dispatch_inner(
                 r.filters.len(),
                 r.search_text
             );
-            // Entries come straight from the DB (the read source of
-            // truth), fully populated — no in-memory snapshot.
-            let hidden_library_ids = r
-                .library_visibility
-                .as_ref()
-                .map_or(&[][..], |selection| selection.hidden_library_ids.as_slice());
-            let all_entries =
-                repo::load_entries_excluding_libraries(&state.db, hidden_library_ids).await?;
-
-            let mut raw_entries: Vec<&crate::catalog::entry::WallpaperEntry> = all_entries
-                .iter()
-                .filter(|e| r.wp_type.is_empty() || e.wp_type == r.wp_type)
-                .collect();
-            if !r.skip_types.is_empty() {
-                raw_entries.retain(|e| !r.skip_types.iter().any(|t| t == &e.wp_type));
-            }
-            match pb::WallpaperHiddenFilter::try_from(r.hidden_filter)
-                .unwrap_or(pb::WallpaperHiddenFilter::Exclude)
-            {
-                pb::WallpaperHiddenFilter::Exclude => {
-                    raw_entries.retain(|e| !e.hidden);
-                }
-                pb::WallpaperHiddenFilter::Only => {
-                    raw_entries.retain(|e| e.hidden);
-                }
-                pb::WallpaperHiddenFilter::Include => {}
-            }
-
-            let mut effective_filters: Vec<_> =
-                r.filters.iter().filter_map(filter_rule_from_pb).collect();
-            let filter_logics: Vec<_> = r.filter_logics.iter().map(filter_logic_from_pb).collect();
-            let sorts: Vec<_> = r.sorts.iter().filter_map(sort_rule_from_pb).collect();
-            let search_text = r.search_text.trim();
-
-            // Quick tag filter: keep only wallpapers having any of the
-            // selected tags, AND-ed in via its own fresh group.
-            if !r.filter_tags.is_empty() {
-                let next_group = effective_filters
-                    .iter()
-                    .map(|f| f.group)
-                    .max()
-                    .map(|g| g + 1)
-                    .unwrap_or(0);
-                effective_filters.push(crate::catalog::FilterRule {
-                    group: next_group,
-                    predicate: crate::catalog::query::FilterPredicate::Tags {
-                        values: r.filter_tags.clone(),
-                        condition: crate::catalog::query::StringMatch::Is,
-                    },
-                });
-            }
-
-            // Quick content-rating toggles: drop the unselected ratings,
-            // each as its own AND-ed group.
-            for rating in &r.skip_content_ratings {
-                let next_group = effective_filters
-                    .iter()
-                    .map(|f| f.group)
-                    .max()
-                    .map(|g| g + 1)
-                    .unwrap_or(0);
-                effective_filters.push(crate::catalog::FilterRule {
-                    group: next_group,
-                    predicate: crate::catalog::query::FilterPredicate::ContentRating {
-                        value: rating.clone(),
-                        condition: crate::catalog::query::StringMatch::IsNot,
-                    },
-                });
-            }
-
-            let matched_keys = if effective_filters.is_empty() && search_text.is_empty() {
-                None
-            } else {
-                Some(
-                    repo::list_item_keys_by_wallpaper_query(
-                        &state.db,
-                        &crate::catalog::CatalogQuery {
-                            filters: effective_filters.clone(),
-                            logics: filter_logics.clone(),
-                            sorts: sorts.clone(),
-                            search_text: search_text.to_owned(),
-                        },
-                    )
-                    .await?
-                    .into_iter()
-                    .collect::<std::collections::HashSet<(String, String)>>(),
-                )
-            };
-
-            let mut filtered_entries: Vec<&crate::catalog::entry::WallpaperEntry> =
-                if let Some(matched_keys) = matched_keys.as_ref() {
-                    raw_entries
-                        .into_iter()
-                        .filter(|e| {
-                            crate::catalog::path::relative_under_root(&e.library_root, &e.resource)
-                                .map(|rel| matched_keys.contains(&(e.library_root.clone(), rel)))
-                                .unwrap_or(false)
-                        })
-                        .collect()
-                } else {
-                    raw_entries
-                };
-
-            crate::catalog::query::sort_entries(&mut filtered_entries, &sorts);
-
-            let total = filtered_entries.len() as u32;
-            let page_size = r.page_size as usize;
-            let (offset, take) = if page_size == 0 {
-                (0usize, filtered_entries.len())
-            } else {
-                ((r.page as usize) * page_size, page_size)
-            };
-            log::info!("WallpaperList: total={total} returning offset={offset} take={take}");
-
-            let page_entries: Vec<&crate::catalog::entry::WallpaperEntry> = filtered_entries
-                .into_iter()
-                .skip(offset)
-                .take(take)
-                .collect();
-
-            // Batch-load tags for just the items on this page (avoid
-            // an N+1 round-trip when paginating large libraries).
-            let page_item_ids: Vec<i64> = page_entries.iter().map(|e| e.item_id).collect();
-            let tag_map = repo::list_tags_for_items(&state.db, &page_item_ids).await?;
+            let selection = selection_from_request(&r)?;
+            let result = application::wallpaper_query::query_wallpapers(
+                &state.db,
+                &selection,
+                r.page,
+                r.page_size,
+            )
+            .await?;
+            let total = result.total;
+            let page_entries: Vec<_> = result.entries.iter().collect();
             let capabilities_by_item = page_entries
                 .iter()
                 .map(|e| {
@@ -564,7 +472,7 @@ pub(super) async fn dispatch_inner(
             let entries: Vec<pb::WallpaperEntry> = page_entries
                 .into_iter()
                 .map(|e| {
-                    let tags = tag_map.get(&e.item_id).cloned().unwrap_or_default();
+                    let tags = e.tags.clone();
                     entry_to_pb(
                         e,
                         tags,
@@ -2236,11 +2144,12 @@ pub(super) async fn dispatch_inner(
             let items = crate::model::repo::playlists::list(&state.db).await?;
             let mut playlists = Vec::with_capacity(items.len());
             for s in items {
-                let entry_ids = crate::model::repo::playlists::entry_ids(&state.db, s.id)
-                    .await?
-                    .into_iter()
-                    .map(|e| e.to_string())
-                    .collect();
+                let entry_ids = match &s.source {
+                    crate::model::playlist_source::PlaylistSource::Curated(ids) => {
+                        ids.iter().map(ToString::to_string).collect()
+                    }
+                    _ => Vec::new(),
+                };
                 playlists.push(playlist_summary_to_pb(s, entry_ids));
             }
             Res::PlaylistList(pb::PlaylistListResponse { playlists })
@@ -2248,15 +2157,29 @@ pub(super) async fn dispatch_inner(
 
         Req::PlaylistGet(r) => {
             let detail = crate::model::repo::playlists::detail(&state.db, r.id).await?;
-            let entry_ids = detail
-                .entries
-                .iter()
-                .map(|entry| entry.item_id.to_string())
-                .collect();
+            let entry_ids = if detail.summary.source.is_smart() {
+                Vec::new()
+            } else {
+                detail
+                    .entries
+                    .iter()
+                    .map(|entry| entry.item_id.to_string())
+                    .collect()
+            };
             let playlist = playlist_summary_to_pb(detail.summary, entry_ids);
             let wallpapers = detail
                 .entries
                 .iter()
+                .skip(if r.page_size == 0 {
+                    0
+                } else {
+                    (r.page as usize).saturating_mul(r.page_size as usize)
+                })
+                .take(if r.page_size == 0 {
+                    usize::MAX
+                } else {
+                    r.page_size as usize
+                })
                 .map(|entry| {
                     entry_to_pb(
                         entry,
@@ -2279,15 +2202,15 @@ pub(super) async fn dispatch_inner(
 
         Req::PlaylistUpdate(r) => {
             let mode = pb_playlist_mode_to_queue(r.mode);
-            let entry_ids = parse_entry_ids(&r.entry_ids);
-            let changes = crate::model::repo::playlists::update(
+            let source = playlist_source_from_pb(r.source.as_ref(), &r.entry_ids)?;
+            let changes = crate::model::repo::playlists::update_with_source(
                 &state.db,
                 r.id,
                 &r.name,
                 mode,
                 r.interval_secs,
                 r.synchronized_selection,
-                &entry_ids,
+                &source,
                 (r.expected_revision > 0).then_some(r.expected_revision),
                 tasks::now_ms(),
             )
@@ -2308,14 +2231,15 @@ pub(super) async fn dispatch_inner(
 
         Req::PlaylistCreate(r) => {
             let mode = pb_playlist_mode_to_queue(r.mode);
-            let id = crate::model::repo::playlists::create(
+            let source = playlist_source_from_pb(r.source.as_ref(), &r.entry_ids)?;
+            let id = crate::model::repo::playlists::create_with_source(
                 &state.db,
                 &r.name,
                 mode,
                 r.interval_secs,
                 r.synchronized_selection,
                 tasks::now_ms(),
-                &parse_entry_ids(&r.entry_ids),
+                &source,
             )
             .await?;
             state.events.publish(GlobalEvent::PlaylistChanged);
@@ -2421,10 +2345,17 @@ fn playlist_summary_to_pb(
     summary: crate::model::repo::playlists::Summary,
     entry_ids: Vec<String>,
 ) -> pb::PlaylistSummary {
+    let source = Some(playlist_source_to_pb(&summary.source));
     pb::PlaylistSummary {
         id: summary.id,
         name: summary.name,
-        source_kind: "curated".into(),
+        source_kind: if summary.source.is_smart() {
+            "smart"
+        } else {
+            "curated"
+        }
+        .into(),
+        source,
         mode: queue_mode_to_pb_playlist(summary.mode),
         interval_secs: summary.interval_secs,
         synchronized_selection: summary.synchronized_selection,

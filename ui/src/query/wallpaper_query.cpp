@@ -68,6 +68,7 @@ WallpaperListQuery::WallpaperListQuery(QObject* parent): QueryList(parent) {
 }
 
 void WallpaperListQuery::invalidateList() {
+    Q_EMIT selectionChanged();
     ++m_generation;
     cancel();
     m_reload_pending = true;
@@ -242,6 +243,45 @@ auto WallpaperListQuery::listRequest() const -> proto::WallpaperListRequest {
     selection.setHiddenLibraryIds(std::move(ids));
     inner.setLibraryVisibility(selection);
     return inner;
+}
+
+auto WallpaperListQuery::selection() const -> QVariant {
+    proto::WallpaperSelection s;
+    s.setFilters(m_filters);
+    s.setFilterLogics(m_filter_logics);
+    s.setSorts(m_sorts);
+    s.setSearchText(m_search_text);
+    s.setWpType(m_wp_type);
+    s.setSkipTypes(m_skip_types);
+    s.setFilterTags(m_filter_tags);
+    s.setSkipContentRatings(m_skip_content_ratings);
+    s.setHiddenFilter(static_cast<proto::WallpaperHiddenFilter>(m_hidden_filter));
+    auto ids = s.hiddenLibraryIds();
+    for (auto id : m_hidden_library_ids) ids.append(id);
+    s.setHiddenLibraryIds(std::move(ids));
+    return QVariant::fromValue(s);
+}
+
+bool WallpaperListQuery::matchesSelection(const QVariant& value) const {
+    return value.canConvert<proto::WallpaperSelection>() &&
+           selection().value<proto::WallpaperSelection>() ==
+               value.value<proto::WallpaperSelection>();
+}
+
+void WallpaperListQuery::restoreSelection(const QVariant& value) {
+    if (! value.canConvert<proto::WallpaperSelection>()) return;
+    const auto s = value.value<proto::WallpaperSelection>();
+    replaceFilterState(s.filters(), s.filterLogics());
+    setSorts(s.sorts());
+    setSearchText(s.searchText());
+    setWpType(s.wpType());
+    setSkipTypes(s.skipTypes());
+    setFilterTags(s.filterTags());
+    setSkipContentRatings(s.skipContentRatings());
+    setHiddenFilter(static_cast<int>(s.hiddenFilter()));
+    QList<qlonglong> ids;
+    for (auto id : s.hiddenLibraryIds()) ids.append(static_cast<qint64>(id));
+    setHiddenLibraryIds(ids);
 }
 
 void WallpaperListQuery::reload() {

@@ -1842,12 +1842,29 @@ message AutostartSetResponse {
 // Playlists
 // ---------------------------------------------------------------------------
 //
-// Filter / smart-playlist messages are intentionally absent in this
-// revision — the filter model will be reworked, so only curated
-// playlists (explicit ordered member list of DB item.id values) are
-// reachable from this surface for now. Smart playlists already
-// persisted in the DB stay activatable via PlaylistActivate; the
-// daemon handles them transparently through the resolve layer.
+message WallpaperSelection {
+  repeated WallpaperFilterRule filters = 1;
+  repeated FilterLogic filter_logics = 2;
+  repeated WallpaperSortRule sorts = 3;
+  string search_text = 4;
+  string wp_type = 5;
+  repeated string skip_types = 6;
+  repeated string filter_tags = 7;
+  repeated string skip_content_ratings = 8;
+  WallpaperHiddenFilter hidden_filter = 9;
+  repeated int64 hidden_library_ids = 10;
+}
+
+message CuratedPlaylistSource {
+  repeated string entry_ids = 1;
+}
+
+message PlaylistSource {
+  oneof kind {
+    CuratedPlaylistSource curated = 1;
+    WallpaperSelection smart = 2;
+  }
+}
 
 message PlaylistChanged {
   repeated PlaylistDisplayStatus displays = 1;
@@ -1861,10 +1878,7 @@ enum PlaylistMode {
   RANDOM     = 3;
 }
 
-// Compact summary for listing. `item_count` is `0` for smart
-// playlists in this revision (the resolve layer doesn't materialize
-// them outside the active state) — clients should treat it as a hint,
-// not a guarantee.
+// Counts are evaluated from the current database snapshot.
 message PlaylistSummary {
   int64  id = 1;
   string name = 2;
@@ -1875,6 +1889,7 @@ message PlaylistSummary {
   repeated string entry_ids = 7;
   int64 revision = 8;
   bool synchronized_selection = 9;
+  PlaylistSource source = 10;
 }
 
 message PlaylistListRequest {}
@@ -1884,6 +1899,9 @@ message PlaylistListResponse {
 
 message PlaylistGetRequest {
   int64 id = 1;
+  uint32 page = 2;
+  // Zero preserves the unpaged response for existing clients.
+  uint32 page_size = 3;
 }
 message PlaylistGetResponse {
   PlaylistSummary playlist = 1;
@@ -1898,6 +1916,7 @@ message PlaylistUpdateRequest {
   int64 expected_revision = 5;
   repeated string entry_ids = 6;
   bool synchronized_selection = 7;
+  PlaylistSource source = 8;
 }
 
 message PlaylistCreateRequest {
@@ -1906,6 +1925,7 @@ message PlaylistCreateRequest {
   uint32         interval_secs = 3;
   repeated string entry_ids = 4;
   bool synchronized_selection = 5;
+  PlaylistSource source = 6;
 }
 message PlaylistCreateResponse {
   int64 id = 1;
@@ -1956,6 +1976,8 @@ message PlaylistDisplayStatus {
   uint32 position = 6;
   uint32 count = 7;
   uint32 remaining_secs = 8;
+  bool waiting = 9;
+  string error = 10;
 }
 
 message PlaylistStatusRequest {}

@@ -328,7 +328,7 @@ MD.Page {
 
     MD.Action {
         id: filterAction
-        icon.name: MD.Token.icon.filter_list
+        icon.name: MD.Token.icon.filter_alt
         text: qsTr("Filters")
         checked: wallpaperQuery.hasOtherFilters
         onTriggered: {
@@ -827,9 +827,9 @@ MD.Page {
             root.showPlaylistListSheet();
     }
 
-    function openPlaylistEditor(playlist) {
+    function openPlaylistEditor(playlist, createSmart = false) {
         const playlistId = Number(typeof playlist === "object" ? playlist?.id ?? 0 : playlist ?? 0);
-        if (!(playlistId > 0))
+        if (!(playlistId > 0) && !createSmart)
             return;
         if (root.playlistEditorPresentation?.active && root.playlistEditorId === playlistId)
             return;
@@ -843,7 +843,8 @@ MD.Page {
         const presentation = root.Window.window.presentPopup('waywallen.ui/PagePopup', {
             source: 'waywallen.ui/PlaylistEditPage',
             props: {
-                playlistId: playlistId
+                playlistId: playlistId,
+                initialIntervalSecs: root.defaultPlaylistIntervalSecs
             }
         });
         root.playlistEditorPresentation = presentation;

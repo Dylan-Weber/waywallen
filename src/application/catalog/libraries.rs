@@ -24,6 +24,8 @@ async fn library_directory(path: &str) -> Result<String> {
 }
 
 pub async fn add_library(app: &Arc<DaemonContext>, plugin_name: &str, path: &str) -> Result<()> {
+    let _invalidate =
+        crate::application::wallpaper_query::InvalidateOnDrop(app.wallpaper_changes.clone());
     let plugin = repo::find_plugin_by_name(&app.db, plugin_name)
         .await?
         .ok_or_else(|| Error::SourcePluginNotFound(plugin_name.to_owned()))?;
