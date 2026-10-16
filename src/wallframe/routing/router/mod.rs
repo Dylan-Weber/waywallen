@@ -334,6 +334,7 @@ pub struct WallpaperPresentationInfo {
 #[derive(Debug, Clone)]
 pub struct LibrarySnapshot {
     pub id: i64,
+    pub name: String,
     pub path: String,
     pub plugin_name: String,
 }

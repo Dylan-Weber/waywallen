@@ -1,6 +1,48 @@
 use super::*;
 
 #[test]
+fn library_names_protocol_round_trip() {
+    use prost::Message;
+    let snapshot = LibrarySnapshot {
+        id: 17,
+        name: "My wallpapers".into(),
+        path: "/a/wallpapers".into(),
+        plugin_name: "image".into(),
+    };
+    let event = libraries_replace_event(vec![snapshot.clone()]);
+    let instance = library_instance_to_pb(snapshot);
+    let decoded = pb::LibraryInstance::decode(instance.encode_to_vec().as_slice()).unwrap();
+    assert_eq!(decoded.name, "My wallpapers");
+    assert_eq!(decoded.id, 17);
+    let Some(pb::event::Payload::LibrarySnapshot(event)) = event.payload else {
+        panic!("expected library snapshot");
+    };
+    assert_eq!(event.libraries, [decoded]);
+    let add = pb::LibraryAddRequest {
+        path: "/a".into(),
+        plugin_name: "image".into(),
+        name: None,
+    };
+    assert!(
+        pb::LibraryAddRequest::decode(add.encode_to_vec().as_slice())
+            .unwrap()
+            .name
+            .is_none()
+    );
+    let named = pb::LibraryAddRequest {
+        name: Some("Same name".into()),
+        ..add
+    };
+    assert_eq!(
+        pb::LibraryAddRequest::decode(named.encode_to_vec().as_slice())
+            .unwrap()
+            .name
+            .as_deref(),
+        Some("Same name")
+    );
+}
+
+#[test]
 fn library_visibility_presence_and_validation() {
     use prost::Message;
     let absent =

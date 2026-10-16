@@ -2110,8 +2110,13 @@ pub(super) async fn dispatch_inner(
         }
 
         Req::LibraryAdd(r) => {
-            application::add_library(&state, &r.plugin_name, &r.path).await?;
+            application::add_library(&state, &r.plugin_name, &r.path, r.name.as_deref()).await?;
             Res::LibraryAdd(pb::Empty {})
+        }
+
+        Req::LibraryRename(r) => {
+            application::rename_library(&state, r.id, &r.name).await?;
+            Res::LibraryRename(pb::Empty {})
         }
 
         Req::LibraryAutoDetect(_) => {

@@ -72,6 +72,14 @@
 <context>
     <name>AddLibraryPage</name>
     <message>
+        <source>Library name (optional)</source>
+        <translation>库名称（可选）</translation>
+    </message>
+    <message>
+        <source>Leave empty to use the folder name.</source>
+        <translation>留空则使用文件夹名称。</translation>
+    </message>
+    <message>
         <location filename="../qml/page/AddLibraryPage.qml" line="9"/>
         <location filename="../qml/page/AddLibraryPage.qml" line="136"/>
         <source>Add Library</source>
@@ -2170,6 +2178,14 @@ Related display: #%1</source>
 </context>
 <context>
     <name>SourceManagePage</name>
+    <message>
+        <source>Rename library</source>
+        <translation>重命名库</translation>
+    </message>
+    <message>
+        <source>Library name</source>
+        <translation>库名称</translation>
+    </message>
     <message>
         <source>Removed source #%1</source>
         <translation>已移除的来源 #%1</translation>

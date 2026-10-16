@@ -72,6 +72,14 @@
 <context>
     <name>AddLibraryPage</name>
     <message>
+        <source>Library name (optional)</source>
+        <translation>Bibliotheksname (optional)</translation>
+    </message>
+    <message>
+        <source>Leave empty to use the folder name.</source>
+        <translation>Leer lassen, um den Ordnernamen zu verwenden.</translation>
+    </message>
+    <message>
         <location filename="../qml/page/AddLibraryPage.qml" line="9"/>
         <location filename="../qml/page/AddLibraryPage.qml" line="148"/>
         <source>Add Library</source>
@@ -2281,6 +2289,14 @@ Betroffener Bildschirm: #%1</translation>
 </context>
 <context>
     <name>SourceManagePage</name>
+    <message>
+        <source>Rename library</source>
+        <translation>Bibliothek umbenennen</translation>
+    </message>
+    <message>
+        <source>Library name</source>
+        <translation>Bibliotheksname</translation>
+    </message>
     <message>
         <source>Removed source #%1</source>
         <translation>Entfernte Quelle #%1</translation>

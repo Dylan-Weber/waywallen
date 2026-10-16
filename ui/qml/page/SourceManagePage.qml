@@ -7,6 +7,7 @@ import waywallen.ui as W
 MD.Page {
     id: root
     title: qsTr("Library Manager")
+    implicitWidth: 480
     // Bind locally; Qt.binding values in asynchronous initial properties can crash Qt.
     property QtObject visibilityState: null
     readonly property W.WallpaperListQuery libraryQuery: visibilityState ? visibilityState.query : null
@@ -29,6 +30,50 @@ MD.Page {
 
     W.LibraryRemoveQuery {
         id: removeQuery
+    }
+
+    W.LibraryRenameQuery {
+        id: renameQuery
+        forwardError: false
+        onErrorOccurred: function (error) {
+            renameDialog.errorText = error;
+        }
+        onFinished: renameDialog.close()
+    }
+
+    MD.Dialog {
+        id: renameDialog
+        property string errorText: ""
+        property string originalName: ""
+        title: qsTr("Rename library")
+        parent: MD.Overlay.overlay
+        modal: true
+        horizontalPadding: 24
+        implicitWidth: Math.min(400, parent ? parent.width - 48 : 400)
+        standardButtons: MD.Dialog.Cancel
+
+        function openFor(library) {
+            renameQuery.libraryId = library.id;
+            originalName = library.name;
+            nameField.text = library.name;
+            errorText = "";
+            open();
+        }
+
+        onOpened: nameField.forceActiveFocus()
+        contentItem: W.ApplyTextField {
+            id: nameField
+            placeholderText: qsTr("Library name")
+            enabled: !renameQuery.querying
+            canApply: text.trim().length > 0 && text.trim() !== renameDialog.originalName
+            error: renameDialog.errorText.length > 0
+            errorText: renameDialog.errorText
+            onTextEdited: renameDialog.errorText = ""
+            onApplied: value => {
+                renameQuery.name = value;
+                renameQuery.reload();
+            }
+        }
     }
 
     contentItem: Item {
@@ -79,10 +124,16 @@ MD.Page {
 
                 mdState.backgroundColor: MD.Token.color.surface_container
 
-                text: fullPath
+                text: modelData.name
+                supportText: qsTr("Plugin: %1").arg(modelData.pluginName)
                 wrapMode: Text.Wrap
                 maximumLineCount: 3
-                supportText: qsTr("Plugin: %1").arg(modelData.pluginName)
+                below: MD.Text {
+                    text: sourceItem.fullPath
+                    wrapMode: Text.Wrap
+                    typescale: MD.Token.typescale.body_medium
+                    color: sourceItem.mdState.supportTextColor
+                }
 
                 leader: MD.Icon {
                     name: MD.Token.icon.folder
@@ -91,6 +142,14 @@ MD.Page {
 
                 trailing: Row {
                     spacing: 4
+                    MD.IconButton {
+                        enabled: !renameQuery.querying
+                        icon.name: MD.Token.icon.edit
+                        Accessible.name: qsTr("Rename library")
+                        MD.ToolTip.text: Accessible.name
+                        MD.ToolTip.visible: hovered
+                        onClicked: renameDialog.openFor(sourceItem.modelData)
+                    }
                     MD.IconButton {
                         visible: root.libraryQuery !== null
                         enabled: root.visibilityReady

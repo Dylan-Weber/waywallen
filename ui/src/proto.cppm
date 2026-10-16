@@ -201,6 +201,7 @@ using proto::LibraryListRequest;
 using proto::LibraryListResponse;
 using proto::LibraryRemoved;
 using proto::LibraryRemoveRequest;
+using proto::LibraryRenameRequest;
 using proto::LibrarySnapshot;
 
 using proto::AutoReplayPolicy;

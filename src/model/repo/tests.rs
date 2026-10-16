@@ -32,6 +32,74 @@ async fn mem_db() -> DatabaseConnection {
 }
 
 #[tokio::test]
+async fn library_names_default_and_allow_duplicates() {
+    let db = mem_db().await;
+    let plugin = upsert_plugin(&db, "names", "1").await.unwrap();
+    let a = add_library(&db, plugin.id, "/a/Wallpapers/").await.unwrap();
+    assert_eq!(a.name, "Wallpapers");
+    let b = add_named_library(&db, plugin.id, "/b", Some("Wallpapers-1"))
+        .await
+        .unwrap();
+    let c = add_library(&db, plugin.id, "/c/Wallpapers").await.unwrap();
+    assert_eq!(c.name, "Wallpapers-2");
+    let duplicate = add_named_library(&db, plugin.id, "/d", Some(" Wallpapers "))
+        .await
+        .unwrap();
+    assert_eq!(duplicate.name, a.name);
+    let renamed = rename_library(&db, b.id, "Wallpapers").await.unwrap();
+    assert_eq!(renamed.name, a.name);
+    assert_eq!(renamed.id, b.id);
+    assert_eq!(renamed.path, b.path);
+    assert_eq!(renamed.plugin_id, b.plugin_id);
+    assert_eq!(renamed.metadata, b.metadata);
+    assert_eq!(
+        find_library(&db, plugin.id, "/b")
+            .await
+            .unwrap()
+            .unwrap()
+            .name,
+        a.name
+    );
+    let next = add_library(&db, plugin.id, "/next/Wallpapers")
+        .await
+        .unwrap();
+    assert_eq!(next.name, "Wallpapers-1");
+    assert!(matches!(
+        rename_library(&db, a.id, " \n").await,
+        Err(Error::InvalidArgument(_))
+    ));
+    assert!(matches!(
+        add_named_library(&db, plugin.id, "/empty", Some("")).await,
+        Err(Error::InvalidArgument(_))
+    ));
+    assert!(matches!(
+        rename_library(&db, 999, "Missing").await,
+        Err(Error::LibraryNotFound(999))
+    ));
+    assert!(add_library(&db, plugin.id, &a.path).await.is_err());
+    assert_eq!(
+        add_library(&db, plugin.id, "/壁纸").await.unwrap().name,
+        "壁纸"
+    );
+    assert_eq!(add_library(&db, plugin.id, "/").await.unwrap().name, "/");
+}
+
+#[tokio::test]
+async fn library_names_concurrent_defaults() {
+    let db = mem_db().await;
+    let plugin = upsert_plugin(&db, "names", "1").await.unwrap();
+    let (a, b) = tokio::join!(
+        add_library(&db, plugin.id, "/a/Wallpapers"),
+        add_library(&db, plugin.id, "/b/Wallpapers"),
+    );
+    let names: HashSet<_> = [a.unwrap().name, b.unwrap().name].into_iter().collect();
+    assert_eq!(
+        names,
+        HashSet::from(["Wallpapers".to_owned(), "Wallpapers-1".to_owned()])
+    );
+}
+
+#[tokio::test]
 async fn library_visibility_excludes_only_hidden_ids() {
     let db = mem_db().await;
     let p1 = upsert_plugin(&db, "library-a", "1").await.unwrap();

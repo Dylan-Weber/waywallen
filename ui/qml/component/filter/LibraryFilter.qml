@@ -28,7 +28,9 @@ QtObject {
 
     readonly property var libraryOptions: {
         const options = Array.from(W.App.libraryManager.libraries).map(library => ({
-                    name: library.path + " · " + library.pluginName,
+                    name: library.name,
+                    path: library.path,
+                    pluginName: library.pluginName,
                     value: library.id
                 }));
         if (value > 0 && !options.some(option => option.value === value))
@@ -41,15 +43,30 @@ QtObject {
 
     readonly property Component valueDelegate: Component {
         MD.ComboBox {
+            id: libraryCombo
             width: Math.min(280, root.availableWidth)
             mdState.size: MD.Enum.XS
             model: root.libraryOptions
             textRole: "name"
             valueRole: "value"
-            currentIndex: root.libraryOptions.findIndex(option => option.value === root.value)
+            currentValue: root.value
             displayText: currentIndex >= 0 ? currentText : qsTr("Select library")
             onActivated: root.value = currentValue
-            MD.ToolTip.text: displayText
+            delegate: MD.MenuItem {
+                required property var model
+                required property int index
+                width: ListView.view.width
+                text: model.name
+                selected: libraryCombo.currentIndex === index
+                highlighted: libraryCombo.highlightedIndex === index
+                focusPolicy: Qt.NoFocus
+                MD.ToolTip.text: model.path ? model.path + " · " + model.pluginName : text
+                MD.ToolTip.visible: hovered
+            }
+            MD.ToolTip.text: {
+                const option = root.libraryOptions[currentIndex];
+                return option && option.path ? option.path + " · " + option.pluginName : displayText;
+            }
             MD.ToolTip.visible: hovered
         }
     }

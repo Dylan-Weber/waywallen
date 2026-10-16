@@ -72,6 +72,14 @@
 <context>
     <name>AddLibraryPage</name>
     <message>
+        <source>Library name (optional)</source>
+        <translation>Название библиотеки (необязательно)</translation>
+    </message>
+    <message>
+        <source>Leave empty to use the folder name.</source>
+        <translation>Оставьте пустым, чтобы использовать имя папки.</translation>
+    </message>
+    <message>
         <location filename="../qml/page/AddLibraryPage.qml" line="9"/>
         <location filename="../qml/page/AddLibraryPage.qml" line="136"/>
         <source>Add Library</source>
@@ -2169,6 +2177,14 @@ Related display: #%1</source>
 </context>
 <context>
     <name>SourceManagePage</name>
+    <message>
+        <source>Rename library</source>
+        <translation>Переименовать библиотеку</translation>
+    </message>
+    <message>
+        <source>Library name</source>
+        <translation>Название библиотеки</translation>
+    </message>
     <message>
         <source>Removed source #%1</source>
         <translation>Удалённый источник №%1</translation>

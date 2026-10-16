@@ -13,7 +13,7 @@ mod query;
 mod remote;
 mod watch;
 
-pub use libraries::add_library;
+pub use libraries::{add_library, rename_library};
 pub use query::ordered_entry_ids;
 pub use remote::{
     download_remote, publish_remote_download_progress, remote_capability,
@@ -59,6 +59,7 @@ pub async fn auto_detect_libraries(
                 Ok(lib) => {
                     let snap = LibrarySnapshot {
                         id: lib.id,
+                        name: lib.name,
                         path: lib.path,
                         plugin_name: plugin_name.clone(),
                     };
@@ -125,6 +126,7 @@ pub async fn list_library_snapshots(
             .unwrap_or_default();
         out.push(crate::wallframe::routing::LibrarySnapshot {
             id: lib.id,
+            name: lib.name,
             path: lib.path,
             plugin_name,
         });
