@@ -3297,4 +3297,97 @@ Unsaved frame state may be lost.</source>
         <translation>Не удалось загрузить скрытые обои</translation>
     </message>
 </context>
+<context>
+    <name>TrayMenu</name>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="6"/>
+        <source>1 hour</source>
+        <translation>1 час</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="7"/>
+        <source>1 minute</source>
+        <translation>1 минута</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="8"/>
+        <source>15 minutes</source>
+        <translation>15 минут</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="9"/>
+        <source>30 seconds</source>
+        <translation>30 секунд</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="10"/>
+        <source>5 minutes</source>
+        <translation>5 минут</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="11"/>
+        <source>Linux wallpaper daemon</source>
+        <translation>Демон обоев для Linux</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="12"/>
+        <source>Mute</source>
+        <translation>Заглушить</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="13"/>
+        <source>Next</source>
+        <translation>Следующие обои</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="14"/>
+        <source>Off</source>
+        <translation>Выкл.</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="15"/>
+        <source>Open UI</source>
+        <translation>Открыть интерфейс</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="16"/>
+        <source>Pause</source>
+        <translation>Пауза</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="17"/>
+        <source>Previous</source>
+        <translation>Предыдущие обои</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="18"/>
+        <source>Quit</source>
+        <translation>Выход</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="19"/>
+        <source>Rescan wallpapers</source>
+        <translation>Пересканировать обои</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="20"/>
+        <source>Resume</source>
+        <translation>Возобновить</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="21"/>
+        <source>Rotate</source>
+        <translation>Смена обоев</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="22"/>
+        <source>Shuffle</source>
+        <translation>Вперемешку</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="23"/>
+        <source>Unmute</source>
+        <translation>Включить звук</translation>
+    </message>
+</context>
 </TS>

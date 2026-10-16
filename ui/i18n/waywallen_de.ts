@@ -3333,4 +3333,97 @@ Ungespeicherter Bildzustand kann verloren gehen.</translation>
         <translation>Maus-Parallaxe</translation>
     </message>
 </context>
+<context>
+    <name>TrayMenu</name>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="6"/>
+        <source>1 hour</source>
+        <translation>1 Stunde</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="7"/>
+        <source>1 minute</source>
+        <translation>1 Minute</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="8"/>
+        <source>15 minutes</source>
+        <translation>15 Minuten</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="9"/>
+        <source>30 seconds</source>
+        <translation>30 Sekunden</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="10"/>
+        <source>5 minutes</source>
+        <translation>5 Minuten</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="11"/>
+        <source>Linux wallpaper daemon</source>
+        <translation>Hintergrundbild-Daemon für Linux</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="12"/>
+        <source>Mute</source>
+        <translation>Stummschalten</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="13"/>
+        <source>Next</source>
+        <translation>Nächstes Hintergrundbild</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="14"/>
+        <source>Off</source>
+        <translation>Aus</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="15"/>
+        <source>Open UI</source>
+        <translation>Oberfläche öffnen</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="16"/>
+        <source>Pause</source>
+        <translation>Anhalten</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="17"/>
+        <source>Previous</source>
+        <translation>Vorheriges Hintergrundbild</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="18"/>
+        <source>Quit</source>
+        <translation>Beenden</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="19"/>
+        <source>Rescan wallpapers</source>
+        <translation>Hintergrundbilder neu einlesen</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="20"/>
+        <source>Resume</source>
+        <translation>Fortsetzen</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="21"/>
+        <source>Rotate</source>
+        <translation>Automatisch wechseln</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="22"/>
+        <source>Shuffle</source>
+        <translation>Mischen</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="23"/>
+        <source>Unmute</source>
+        <translation>Stummschaltung aufheben</translation>
+    </message>
+</context>
 </TS>

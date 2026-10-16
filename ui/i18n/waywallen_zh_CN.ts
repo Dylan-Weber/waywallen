@@ -3174,4 +3174,97 @@ Unsaved frame state may be lost.</source>
         <translation>加载隐藏壁纸失败</translation>
     </message>
 </context>
+<context>
+    <name>TrayMenu</name>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="6"/>
+        <source>1 hour</source>
+        <translation>1 小时</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="7"/>
+        <source>1 minute</source>
+        <translation>1 分钟</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="8"/>
+        <source>15 minutes</source>
+        <translation>15 分钟</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="9"/>
+        <source>30 seconds</source>
+        <translation>30 秒</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="10"/>
+        <source>5 minutes</source>
+        <translation>5 分钟</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="11"/>
+        <source>Linux wallpaper daemon</source>
+        <translation>Linux 壁纸守护进程</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="12"/>
+        <source>Mute</source>
+        <translation>静音</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="13"/>
+        <source>Next</source>
+        <translation>下一张壁纸</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="14"/>
+        <source>Off</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="15"/>
+        <source>Open UI</source>
+        <translation>打开界面</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="16"/>
+        <source>Pause</source>
+        <translation>暂停</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="17"/>
+        <source>Previous</source>
+        <translation>上一张壁纸</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="18"/>
+        <source>Quit</source>
+        <translation>退出</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="19"/>
+        <source>Rescan wallpapers</source>
+        <translation>重新扫描壁纸</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="20"/>
+        <source>Resume</source>
+        <translation>继续</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="21"/>
+        <source>Rotate</source>
+        <translation>自动切换</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="22"/>
+        <source>Shuffle</source>
+        <translation>随机播放</translation>
+    </message>
+    <message>
+        <location filename="../src/tray_i18n.cpp" line="23"/>
+        <source>Unmute</source>
+        <translation>取消静音</translation>
+    </message>
+</context>
 </TS>

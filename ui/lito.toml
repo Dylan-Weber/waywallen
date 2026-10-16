@@ -95,6 +95,7 @@ sources = [
   "src/query/wallpaper_query.cppm",
   "src/thumb/service.cpp",
   "src/thumb/service.cppm",
+  "src/tray_i18n.cpp",
   "src/ui_language.cpp",
   "src/ui_language.cppm",
   "src/update_checker.cpp",
