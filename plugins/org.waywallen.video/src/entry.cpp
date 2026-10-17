@@ -1134,6 +1134,8 @@ int run(int argc, char** argv) {
      * rounds up internally too; do it here so all our state agrees. */
     uint32_t even_w = opt.width + (opt.width & 1u);
     uint32_t even_h = opt.height + (opt.height & 1u);
+    opt.width       = even_w;
+    opt.height      = even_h;
 
     /* --- Vulkan device first, so the decoder can share it --- */
     auto producer_res = wavsen::video::Producer::create_with_render_node(
