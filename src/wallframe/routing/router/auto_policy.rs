@@ -22,7 +22,7 @@ impl Router {
             if !state.window_observation.accept(generation)? {
                 return Ok(());
             }
-            state.auto_replay.last_flags = flags;
+            state.auto_replay.last_flags = state.info.role.window_flags(flags);
         }
         self.refresh_auto_policy(false).await;
         Ok(())
@@ -70,6 +70,9 @@ impl Router {
                 .update(&global, facts, true, now, reset);
             self.schedule_auto_resume(auto_replay::Source::Global, &inner.global_auto_replay);
             let mut effects = inner.global_auto_replay.effects();
+            let mut lock_effects = inner
+                .global_auto_replay
+                .effects_for(DisplayRole::LockScreen);
             for (&id, state) in &mut inner.displays {
                 let policy = self.resolved_auto_replay(&state.info);
                 let previous_unsupported = state.window_observation.unsupported;
@@ -92,7 +95,7 @@ impl Router {
                 state.auto_replay.update(
                     &policy,
                     auto_replay::Facts {
-                        flags: state.auto_replay.last_flags,
+                        flags: state.info.role.window_flags(state.auto_replay.last_flags),
                         ..facts
                     },
                     false,
@@ -106,14 +109,24 @@ impl Router {
                     stop_local: false,
                     ..contribution
                 });
+                lock_effects.merge(auto_replay::Effects {
+                    pause: false,
+                    stop_local: false,
+                    ..state.auto_replay.effects_for(DisplayRole::LockScreen)
+                });
             }
             let mut changed = inner.auto_effects != effects;
             inner.auto_effects = effects;
             for state in inner.displays.values_mut() {
                 let was_paused = state.display_paused();
                 let was_auto_paused = state.auto_paused;
-                state.auto_paused =
-                    !effects.stop && (effects.pause_all || state.auto_replay.effects().pause);
+                let applicable = match state.info.role {
+                    DisplayRole::Desktop => effects,
+                    DisplayRole::LockScreen => lock_effects,
+                };
+                state.auto_paused = !applicable.stop
+                    && (applicable.pause_all
+                        || state.auto_replay.effects_for(state.info.role).pause);
                 state.consumption_changed(was_paused);
                 changed |= was_auto_paused != state.auto_paused
                     || state.auto_replay.stop_applied

@@ -34,7 +34,9 @@ use crate::wallframe::ipc::proto::{
 use crate::wallframe::renderer_manager::{
     DrmNode, PublishedPool, RendererHandle, RendererId, RendererManager, RendererRuntimeTag,
 };
-use crate::wallframe::scheduler::{CompositionConfig, DisplayId, DisplayInfo, DisplayMetrics};
+use crate::wallframe::scheduler::{
+    CompositionConfig, DisplayId, DisplayInfo, DisplayMetrics, DisplayRole,
+};
 
 use super::auto_replay;
 use super::table::{Link, LinkDstRect, LinkId, LinkProjection, LinkSrcRect, RoutingTable};
@@ -250,6 +252,7 @@ fn resume_retry_delay(failures: u32) -> Duration {
 
 /// Initial-registration payload from `display::endpoint::do_handshake`.
 pub struct DisplayRegistration {
+    pub role: DisplayRole,
     pub window_observation_caps: Option<u32>,
     pub name: String,
     /// Stable identifier persisted by the consumer (e.g. UUID4 stored in
@@ -390,6 +393,7 @@ pub struct RendererSnapshot {
 /// `Router::snapshot_displays`; carries metadata from DisplayInfo.
 #[derive(Debug, Clone)]
 pub struct DisplaySnapshot {
+    pub role: DisplayRole,
     pub window_observation_caps: Option<u32>,
     pub unsupported_window_exclusions: u32,
     pub id: DisplayId,
@@ -501,6 +505,7 @@ struct DisplayState {
     consumption_epoch: Arc<AtomicU64>,
     manual_paused: bool,
     auto_paused: bool,
+    global_paused: bool,
     resume_frame_requested: bool,
     published_pause: Option<(bool, bool)>,
 }
@@ -832,7 +837,7 @@ impl Router {
             };
         };
         if let Some(iid) = info.instance_id.as_deref() {
-            if s.display_prefs(iid).is_some() {
+            if info.role == DisplayRole::LockScreen || s.display_prefs(iid).is_some() {
                 return s.resolved_layout(iid);
             }
             // No instance_id-keyed entry yet — fall back to the legacy
@@ -869,7 +874,11 @@ impl Router {
             return LayoutSource::Global;
         };
         let prefs = if let Some(iid) = info.instance_id.as_deref() {
-            s.display_prefs(iid).or_else(|| s.display_prefs(&info.name))
+            s.display_prefs(iid).or_else(|| {
+                (info.role == DisplayRole::Desktop)
+                    .then(|| s.display_prefs(&info.name))
+                    .flatten()
+            })
         } else {
             s.display_prefs(&info.name)
         };
@@ -996,12 +1005,16 @@ impl Router {
         let Some(s) = self.settings.get() else {
             return AutoReplayPolicy::default();
         };
-        if let Some(iid) = info.instance_id.as_deref() {
-            if s.display_prefs(iid).is_some() {
-                return s.resolved_auto_replay(iid);
-            }
+        let key = info
+            .instance_id
+            .as_deref()
+            .filter(|iid| info.role == DisplayRole::LockScreen || s.display_prefs(iid).is_some())
+            .unwrap_or(&info.name);
+        let mut policy = s.resolved_auto_replay(key);
+        if info.role == DisplayRole::LockScreen {
+            policy.window_exclusions = Default::default();
         }
-        s.resolved_auto_replay(&info.name)
+        policy
     }
 
     fn resolved_pause_effect(&self, pause_effect_caps: u32) -> PauseEffectConfig {
@@ -1781,7 +1794,7 @@ impl Router {
         if let (Some(iid), Some(settings)) =
             (reg.instance_id.as_deref(), self.settings.get().cloned())
         {
-            if settings.display_prefs(iid).is_none() {
+            if reg.role == DisplayRole::Desktop && settings.display_prefs(iid).is_none() {
                 if let Some(legacy) = settings.display_prefs(&reg.name) {
                     let iid_owned = iid.to_string();
                     settings.update(|s| {
@@ -1830,6 +1843,7 @@ impl Router {
             let id = inner.next_display_id;
             let session_id = inner.next_display_session_id;
             let info = DisplayInfo {
+                role: reg.role,
                 id,
                 name: reg.name,
                 instance_id: reg.instance_id,
@@ -1876,6 +1890,7 @@ impl Router {
                 .get(&settings_key)
                 .filter(|renderer_id| inner.renderer_slots.contains_key(*renderer_id))
                 .cloned();
+            let global_paused = inner.manual_paused && reg.role.accepts_global_pause();
             inner.displays.insert(
                 id,
                 DisplayState {
@@ -1896,6 +1911,7 @@ impl Router {
                     consumption_epoch: Arc::new(AtomicU64::new(1)),
                     manual_paused: false,
                     auto_paused: false,
+                    global_paused,
                     resume_frame_requested: false,
                     published_pause: None,
                 },
@@ -2271,7 +2287,7 @@ impl Router {
                     .send(DisplayOutEvent::SetWindowObservationConfig(config));
             }
             if state.window_observation.accepts_legacy() {
-                state.auto_replay.last_flags = flags;
+                state.auto_replay.last_flags = state.info.role.window_flags(flags);
             }
         }
         self.refresh_auto_policy(false).await;
@@ -3023,6 +3039,7 @@ impl Router {
             })
             .collect();
         Some(DisplaySnapshot {
+            role: s.info.role,
             window_observation_caps: s.window_observation.capabilities,
             unsupported_window_exclusions: s.window_observation.unsupported,
             id,
@@ -3172,6 +3189,7 @@ impl Router {
                     })
                     .collect();
                 Some(DisplaySnapshot {
+                    role: s.info.role,
                     window_observation_caps: s.window_observation.capabilities,
                     unsupported_window_exclusions: s.window_observation.unsupported,
                     id,
@@ -3538,9 +3556,8 @@ impl Router {
                     .filter(|l| l.enabled)
                     .collect();
                 let has_active_link = !links.is_empty();
-                let has_frame_demand = links.iter().any(|link| inner.has_frame_demand(link));
-                let manual_paused =
-                    inner.manual_paused || inner.renderer_manual_paused.contains(&rid);
+                let has_frame_demand = links.iter().any(|link| inner.has_playback_demand(link));
+                let manual_paused = inner.renderer_manual_paused.contains(&rid);
                 let manual_muted = inner.manual_muted;
                 let other_playback_active = inner.other_playback_active;
                 let should_pause = manual_paused || !has_frame_demand;
@@ -4137,6 +4154,7 @@ mod tests {
     fn reg(name: &str, w: u32, h: u32) -> DisplayRegistration {
         use crate::wallframe::dma::negotiate as N;
         DisplayRegistration {
+            role: DisplayRole::Desktop,
             window_observation_caps: None,
             name: name.into(),
             instance_id: None,
@@ -4648,6 +4666,63 @@ mod tests {
             crate::settings::SettingsStore::load_or_default(tmp.path().join("settings.toml")).await;
         std::mem::forget(tmp);
         store
+    }
+
+    #[tokio::test]
+    async fn lock_screen_does_not_migrate_legacy_desktop_preferences() {
+        let router = Router::new(Arc::new(RendererManager::new_default()));
+        let settings = test_settings_store().await;
+        settings.update(|s| {
+            s.displays.insert(
+                "Screen".into(),
+                crate::settings::DisplayPrefs {
+                    fillmode: Some(FillMode::Stretched),
+                    alias: Some("desktop alias".into()),
+                    last_wallpaper: Some("desktop-wallpaper".into()),
+                    ..Default::default()
+                },
+            );
+        });
+        router.attach_settings(settings.clone());
+        let desktop = router
+            .register_display(reg_iid("Screen", "kde-screen"))
+            .await;
+        assert_eq!(
+            settings
+                .display_prefs("kde-screen")
+                .unwrap()
+                .alias
+                .as_deref(),
+            Some("desktop alias")
+        );
+        let mut registration = reg_iid("Screen", "kde-lock-screen");
+        registration.role = DisplayRole::LockScreen;
+        let lock = router.register_display(registration).await;
+        assert!(settings.display_prefs("kde-lock-screen").is_none());
+        let snapshot = router.snapshot_display(lock.id).await.unwrap();
+        assert_eq!(snapshot.effective_layout_source, LayoutSource::Global);
+        assert_eq!(
+            snapshot.display_layout.fillmode,
+            settings.resolved_layout("kde-lock-screen").fillmode
+        );
+        assert_eq!(
+            router
+                .snapshot_display(desktop.id)
+                .await
+                .unwrap()
+                .display_layout
+                .fillmode,
+            FillMode::Stretched
+        );
+        router.unregister_display(lock.id).await;
+        let mut registration = reg_iid("Screen", "kde-lock-screen");
+        registration.role = DisplayRole::LockScreen;
+        let lock = router.register_display(registration).await;
+        assert!(settings.display_prefs("kde-lock-screen").is_none());
+        assert_eq!(
+            router.snapshot_display(lock.id).await.unwrap().role,
+            DisplayRole::LockScreen
+        );
     }
 
     #[tokio::test]
@@ -5998,6 +6073,7 @@ mod tests {
 
     fn make_info(name: &str, w: u32, h: u32) -> DisplayInfo {
         DisplayInfo {
+            role: DisplayRole::Desktop,
             id: 1,
             name: name.into(),
             instance_id: None,
@@ -6135,6 +6211,185 @@ mod tests {
             out.push(ev);
         }
         out
+    }
+
+    async fn publish_initial_test_frame(
+        router: &Arc<Router>,
+        renderer: &Arc<RendererHandle>,
+        display: &mut DisplayHandle,
+    ) {
+        renderer.test_publish_pool(fake_published_pool(1, 1920, 1080));
+        router.on_renderer_bind(&renderer.id).await;
+        router.on_renderer_frame(&renderer.id, 1, 0, 1, 1).await;
+        let events = drain_display_events(&mut display.rx);
+        assert!(events
+            .iter()
+            .any(|event| matches!(event, DisplayOutEvent::Bind { .. })));
+        assert!(events
+            .iter()
+            .any(|event| matches!(event, DisplayOutEvent::Frame { seq: 1, .. })));
+    }
+
+    #[tokio::test]
+    async fn lock_screen_consumes_shared_renderer_while_desktop_is_globally_paused() {
+        let mgr = Arc::new(RendererManager::new_default());
+        let router = Router::new(mgr.clone());
+        router.attach_settings(settings_with_pause_effect(blur_pause_effect(30)).await);
+        let (renderer, mut records) = RendererHandle::test_stub_with_frame_records("r1", "video");
+        renderer.test_publish_pool(fake_published_pool(1, 1920, 1080));
+        mgr.register_test_handle(renderer.clone()).await;
+        router.register_renderer(renderer).await;
+        let mut desktop = router
+            .register_display(reg_iid("Screen", "kde-screen"))
+            .await;
+        router.on_renderer_frame("r1", 1, 0, 1, 1).await;
+        let old = drain_display_events(&mut desktop.rx);
+        let permit = old
+            .iter()
+            .find_map(|e| match e {
+                DisplayOutEvent::Frame { consumption, .. } => Some(consumption.clone()),
+                _ => None,
+            })
+            .unwrap();
+        drop(old);
+        router.set_manual_pause(true).await;
+        assert!(!permit.is_current());
+        assert!(router.is_paused("r1").await);
+        let mut registration = reg_iid("Screen", "kde-lock-screen");
+        registration.role = DisplayRole::LockScreen;
+        registration.pause_effect_caps = PAUSE_EFFECT_CAP_BLUR;
+        let mut lock = router.register_display(registration).await;
+        assert!(!lock.presentation.state.pause_effect.active);
+        assert!(!router.is_paused("r1").await);
+        assert!(
+            router
+                .snapshot_display(desktop.id)
+                .await
+                .unwrap()
+                .effective_paused
+        );
+        let snapshot = router.snapshot_display(lock.id).await.unwrap();
+        assert!(!snapshot.effective_paused);
+        assert_eq!(snapshot.role, DisplayRole::LockScreen);
+        assert_eq!(snapshot.settings_key, "kde-lock-screen");
+        drain_display_events(&mut desktop.rx);
+        drain_display_events(&mut lock.rx);
+        while records.try_recv().is_ok() {}
+        router.on_renderer_frame("r1", 1, 0, 2, 2).await;
+        assert!(!drain_display_events(&mut desktop.rx)
+            .iter()
+            .any(|e| matches!(e, DisplayOutEvent::Frame { .. })));
+        assert!(drain_display_events(&mut lock.rx)
+            .iter()
+            .any(|e| matches!(e, DisplayOutEvent::Frame { seq: 2, .. })));
+        match records.try_recv().unwrap() {
+            crate::wallframe::sync::FrameRecord::Register { consumers, .. } => {
+                assert_eq!(consumers.len(), 1);
+                assert_eq!(consumers[0].display_id, lock.id);
+            }
+            _ => panic!("expected lock screen consumer"),
+        }
+        router.set_renderer_paused("r1", true).await;
+        assert!(
+            router
+                .snapshot_display(lock.id)
+                .await
+                .unwrap()
+                .effective_paused
+        );
+        router.set_renderer_paused("r1", false).await;
+        assert!(
+            !router
+                .snapshot_display(lock.id)
+                .await
+                .unwrap()
+                .effective_paused
+        );
+        router.set_display_paused(lock.id, true).await.unwrap();
+        assert!(router.is_paused("r1").await);
+        router.set_display_paused(lock.id, false).await.unwrap();
+        assert!(!router.is_paused("r1").await);
+        router.unregister_display(lock.id).await;
+        assert!(router.is_paused("r1").await);
+        assert!(router.inner.lock().await.manual_paused);
+        assert!(!router.toggle_manual_pause().await);
+        assert!(!router.is_paused("r1").await);
+    }
+
+    #[tokio::test]
+    async fn lock_screen_auto_pause_keeps_session_inactive_and_ignores_desktop_windows() {
+        let mgr = Arc::new(RendererManager::new_default());
+        let router = Router::new(mgr.clone());
+        let mut policy = auto_replay(&[
+            (AutoCondition::SessionLocked, AutoAction::Pause),
+            (AutoCondition::SessionInactive, AutoAction::Pause),
+            (AutoCondition::Fullscreen, AutoAction::Pause),
+        ]);
+        policy.fullscreen_scope = crate::settings::AutoScope::AllDisplays;
+        router.attach_settings(settings_with_auto_replay(policy).await);
+        let renderer = RendererHandle::test_stub("r1", "scene");
+        mgr.register_test_handle(renderer.clone()).await;
+        router.register_renderer(renderer).await;
+        let desktop = router.register_display(reg("Desktop", 1920, 1080)).await;
+        router.update_session_state(Some(true), None).await;
+        let mut registration = reg("Lock", 1920, 1080);
+        registration.role = DisplayRole::LockScreen;
+        registration.window_state_flags = ar::FLAG_FULLSCREEN;
+        let lock = router.register_display(registration).await;
+        assert!(
+            !router
+                .snapshot_display(lock.id)
+                .await
+                .unwrap()
+                .effective_paused
+        );
+        assert_eq!(
+            router.inner.lock().await.displays[&lock.id]
+                .auto_replay
+                .last_flags,
+            0
+        );
+        router
+            .update_display_window_state(desktop.id, ar::FLAG_FULLSCREEN)
+            .await;
+        assert!(
+            router
+                .snapshot_display(desktop.id)
+                .await
+                .unwrap()
+                .effective_paused
+        );
+        assert!(
+            !router
+                .snapshot_display(lock.id)
+                .await
+                .unwrap()
+                .effective_paused
+        );
+        router.update_session_state(None, Some(true)).await;
+        assert!(
+            router
+                .snapshot_display(lock.id)
+                .await
+                .unwrap()
+                .effective_paused
+        );
+        router.update_session_state(None, Some(false)).await;
+        assert!(
+            !router
+                .snapshot_display(lock.id)
+                .await
+                .unwrap()
+                .effective_paused
+        );
+        assert!(
+            router
+                .snapshot_display(desktop.id)
+                .await
+                .unwrap()
+                .effective_paused
+        );
+        assert!(!router.is_paused("r1").await);
     }
 
     #[tokio::test]
@@ -7251,10 +7506,11 @@ mod tests {
             )]))
             .await,
         );
-        let r = RendererHandle::test_stub("r1", "scene");
+        let (r, _records) = RendererHandle::test_stub_with_frame_records("r1", "scene");
         mgr.register_test_handle(r.clone()).await;
         router.register_renderer(r.clone()).await;
-        let h = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
+        let mut h = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
+        publish_initial_test_frame(&router, &r, &mut h).await;
         // No auto replay condition yet; renderer plays.
         assert!(!router.is_paused("r1").await);
 
@@ -7350,15 +7606,17 @@ mod tests {
         let mut policy = auto_replay(&[(AutoCondition::Fullscreen, AutoAction::Pause)]);
         policy.fullscreen_scope = crate::settings::AutoScope::AllDisplays;
         router.attach_settings(settings_with_auto_replay(policy).await);
-        let r1 = RendererHandle::test_stub("r1", "video");
+        let (r1, _records1) = RendererHandle::test_stub_with_frame_records("r1", "video");
         mgr.register_test_handle(r1.clone()).await;
-        router.register_renderer(r1).await;
-        let a = router.register_display(reg("A", 1920, 1080)).await;
-        let r2 = RendererHandle::test_stub("r2", "video");
+        router.register_renderer(r1.clone()).await;
+        let mut a = router.register_display(reg("A", 1920, 1080)).await;
+        let (r2, _records2) = RendererHandle::test_stub_with_frame_records("r2", "video");
         mgr.register_test_handle(r2.clone()).await;
-        router.register_renderer(r2).await;
-        let b = router.register_display(reg("B", 1920, 1080)).await;
+        router.register_renderer(r2.clone()).await;
+        let mut b = router.register_display(reg("B", 1920, 1080)).await;
         router.relink_displays_to(&[b.id], "r2").await;
+        publish_initial_test_frame(&router, &r1, &mut a).await;
+        publish_initial_test_frame(&router, &r2, &mut b).await;
         router
             .update_display_window_state(a.id, ar::FLAG_FULLSCREEN)
             .await;
@@ -7370,7 +7628,7 @@ mod tests {
                 .unwrap()
                 .effective_paused
         );
-        let c = router.register_display(reg("C", 1920, 1080)).await;
+        let mut c = router.register_display(reg("C", 1920, 1080)).await;
         assert!(
             router
                 .snapshot_display(c.id)
@@ -7378,6 +7636,10 @@ mod tests {
                 .unwrap()
                 .effective_paused
         );
+        router.on_renderer_frame("r1", 1, 0, 2, 2).await;
+        assert!(drain_display_events(&mut c.rx)
+            .iter()
+            .any(|event| matches!(event, DisplayOutEvent::Frame { seq: 2, .. })));
         router
             .update_display_window_state(b.id, ar::FLAG_FULLSCREEN)
             .await;
@@ -7407,19 +7669,22 @@ mod tests {
             ]))
             .await,
         );
-        let r1 = RendererHandle::test_stub("r1", "video");
+        let (r1, _records1) = RendererHandle::test_stub_with_frame_records("r1", "video");
         mgr.register_test_handle(r1.clone()).await;
-        router.register_renderer(r1).await;
-        let a = router.register_display(reg("A", 1920, 1080)).await;
-        let r2 = RendererHandle::test_stub("r2", "video");
+        router.register_renderer(r1.clone()).await;
+        let mut a = router.register_display(reg("A", 1920, 1080)).await;
+        let (r2, _records2) = RendererHandle::test_stub_with_frame_records("r2", "video");
         mgr.register_test_handle(r2.clone()).await;
-        router.register_renderer(r2).await;
-        let b = router.register_display(reg("B", 1920, 1080)).await;
+        router.register_renderer(r2.clone()).await;
+        let mut b = router.register_display(reg("B", 1920, 1080)).await;
         router.relink_displays_to(&[b.id], "r2").await;
+        publish_initial_test_frame(&router, &r1, &mut a).await;
+        publish_initial_test_frame(&router, &r2, &mut b).await;
         router
             .update_display_window_state(a.id, ar::FLAG_ACTIVE | ar::FLAG_FULLSCREEN)
             .await;
         assert!(router.is_paused("r1").await);
+        assert!(!router.is_muted("r1").await);
         assert!(router.is_muted("r2").await);
         router
             .update_display_window_state(a.id, ar::FLAG_ACTIVE)
@@ -7636,30 +7901,6 @@ mod tests {
         tokio::time::advance(Duration::from_millis(100)).await;
         router.refresh_auto_policy(false).await;
         assert!(!router.inner.lock().await.auto_effects.pause_all);
-    }
-
-    #[tokio::test]
-    async fn auto_replay_action_priority_prefers_pause_over_mute() {
-        let mgr = Arc::new(RendererManager::new_default());
-        let router = Router::new(mgr.clone());
-        router.attach_settings(
-            settings_with_auto_replay(auto_replay(&[
-                (AutoCondition::Fullscreen, AutoAction::Pause),
-                (AutoCondition::Focused, AutoAction::Mute),
-            ]))
-            .await,
-        );
-        let r = RendererHandle::test_stub("r1", "scene");
-        mgr.register_test_handle(r.clone()).await;
-        router.register_renderer(r.clone()).await;
-        let h = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
-
-        router
-            .update_display_window_state(h.id, ar::FLAG_ACTIVE | ar::FLAG_FULLSCREEN)
-            .await;
-
-        assert!(router.is_paused("r1").await);
-        assert!(!router.is_muted("r1").await);
     }
 
     #[tokio::test]
@@ -8489,11 +8730,13 @@ mod tests {
         });
         router.attach_settings(settings);
 
-        let (r, peer) = RendererHandle::test_stub_with_peer("r1", "scene");
+        let (r, peer, _records) =
+            RendererHandle::test_stub_with_peer_and_frame_records("r1", "scene");
         peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
         mgr.register_test_handle(r.clone()).await;
         router.register_renderer(r.clone()).await;
-        let h = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
+        let mut h = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
+        publish_initial_test_frame(&router, &r, &mut h).await;
         drain_renderer_controls(&peer);
 
         let reader = std::thread::spawn(move || {
@@ -8549,11 +8792,13 @@ mod tests {
         });
         router.attach_settings(settings);
 
-        let (r, peer) = RendererHandle::test_stub_with_peer("r1", "scene");
+        let (r, peer, _records) =
+            RendererHandle::test_stub_with_peer_and_frame_records("r1", "scene");
         peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
         mgr.register_test_handle(r.clone()).await;
         router.register_renderer(r.clone()).await;
-        let h = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
+        let mut h = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
+        publish_initial_test_frame(&router, &r, &mut h).await;
         drain_renderer_controls(&peer);
 
         let reader = std::thread::spawn(move || {
@@ -8738,15 +8983,18 @@ mod tests {
             )]))
             .await,
         );
-        let (r, _peer) = RendererHandle::test_stub_with_peer("r1", "scene");
+        let (r, _peer, _records) =
+            RendererHandle::test_stub_with_peer_and_frame_records("r1", "scene");
         mgr.register_test_handle(r.clone()).await;
         router.register_renderer(r.clone()).await;
-        let h = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
+        let mut h = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
+        publish_initial_test_frame(&router, &r, &mut h).await;
 
         // Pause, resume, then immediately re-enter fullscreen.
         router
             .update_display_window_state(h.id, ar::FLAG_NON_MINIMIZED | ar::FLAG_FULLSCREEN)
             .await;
+        assert!(router.is_paused("r1").await);
         router
             .update_display_window_state(h.id, ar::FLAG_NON_MINIMIZED)
             .await;

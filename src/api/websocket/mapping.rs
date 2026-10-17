@@ -461,10 +461,17 @@ pub(super) fn display_snapshot_to_pb(
     let layout_key: &str = s
         .instance_id
         .as_deref()
-        .filter(|iid| settings.display_prefs(iid).is_some())
+        .filter(|iid| {
+            s.role == crate::wallframe::scheduler::DisplayRole::LockScreen
+                || settings.display_prefs(iid).is_some()
+        })
         .unwrap_or(s.name.as_str());
     let override_prefs = settings.display_prefs(layout_key).unwrap_or_default();
     pb::DisplayInfo {
+        role: match s.role {
+            crate::wallframe::scheduler::DisplayRole::Desktop => pb::DisplayRole::Desktop,
+            crate::wallframe::scheduler::DisplayRole::LockScreen => pb::DisplayRole::LockScreen,
+        } as i32,
         display_id: s.id,
         manual_paused: s.manual_paused,
         effective_paused: s.effective_paused,

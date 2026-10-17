@@ -845,12 +845,7 @@ impl Router {
     pub async fn set_manual_pause(self: &Arc<Self>, paused: bool) {
         let changed = {
             let mut inner = self.inner.lock().await;
-            if inner.manual_paused == paused {
-                false
-            } else {
-                inner.manual_paused = paused;
-                true
-            }
+            inner.set_global_pause(paused)
         };
         if changed {
             self.reconcile_lifecycle().await;
@@ -860,8 +855,9 @@ impl Router {
     pub async fn toggle_manual_pause(self: &Arc<Self>) -> bool {
         let paused = {
             let mut inner = self.inner.lock().await;
-            inner.manual_paused = !inner.manual_paused;
-            inner.manual_paused
+            let paused = !inner.manual_paused;
+            inner.set_global_pause(paused);
+            paused
         };
         self.reconcile_lifecycle().await;
         paused

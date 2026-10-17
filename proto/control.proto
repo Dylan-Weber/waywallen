@@ -910,6 +910,12 @@ message DisplayInfo {
   bool effective_paused = 22;
   WindowExclusionSupport window_exclusion_support = 23;
   uint32 unsupported_window_exclusions = 24;
+  DisplayRole role = 25;
+}
+
+enum DisplayRole {
+  DISPLAY_ROLE_DESKTOP = 0;
+  DISPLAY_ROLE_LOCK_SCREEN = 1;
 }
 
 enum WindowExclusionSupport {
