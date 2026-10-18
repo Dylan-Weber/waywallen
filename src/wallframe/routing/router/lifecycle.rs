@@ -832,6 +832,20 @@ impl Router {
 
     pub(super) async fn on_deadline_reached(self: &Arc<Self>, event: deadline::DeadlineReached) {
         match event.key {
+            deadline::DeadlineKey::RenderTarget(renderer_id, generation) => {
+                let current = self
+                    .inner
+                    .lock()
+                    .await
+                    .table
+                    .get_renderer(&renderer_id)
+                    .is_some_and(|handle| {
+                        handle.process_generation == generation && generation == event.token
+                    });
+                if current {
+                    self.reconcile_render_targets().await;
+                }
+            }
             deadline::DeadlineKey::RendererStart(renderer_id) => {
                 let _ = self.advance_renderer_start(&renderer_id, event.token).await;
             }

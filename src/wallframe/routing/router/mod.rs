@@ -25,7 +25,7 @@ use crate::settings::{
     AutoReplayPolicy, PauseEffectConfig as StoredPauseEffectConfig, PauseEffectKind,
     ResolvedLayout, SettingsStore, TransitionConfig, TransitionKind,
 };
-use crate::wallframe::display::layout::{FillMode, LayoutInput};
+use crate::wallframe::display::layout::FillMode;
 use crate::wallframe::display::placement::{CanvasRect, CanvasSize};
 use crate::wallframe::ipc::proto::{
     ControlMsg, ControlTransition, EventMsg, RENDERER_STATE_FIELD_CLEAR_COLOR,
@@ -48,6 +48,7 @@ mod consumption;
 mod deadline;
 mod display_sync;
 mod lifecycle;
+mod render_size;
 mod slot;
 mod snapshot;
 
@@ -481,6 +482,8 @@ struct DisplayBinding {
     wire_generation: u64,
     content_token: ContentToken,
     awaiting_initial_frame: bool,
+    // A cached bind replay can precede its queued FrameReady event.
+    last_frame_seq: Option<u64>,
 }
 
 struct DisplayState {
@@ -705,6 +708,7 @@ pub struct Router {
     /// `record_ack_unbind` mutates `unbind_acks_pending`.
     unbind_ack_notify: Notify,
     deadlines: deadline::DeadlineScheduler,
+    render_size_lock: tokio::sync::Mutex<()>,
 }
 
 impl Router {
@@ -787,6 +791,7 @@ impl Router {
             settings: std::sync::OnceLock::new(),
             unbind_ack_notify: Notify::new(),
             deadlines,
+            render_size_lock: tokio::sync::Mutex::new(()),
         });
         let weak = Arc::downgrade(&router);
         tokio::spawn(async move {
@@ -1287,7 +1292,20 @@ impl Router {
             let cfg_gen = inner.next_config_generation;
             let info = inner.displays.get(&display_id).unwrap().info.clone();
             let layout = self.resolved_layout_for_renderer(&info, &link.renderer_id, &inner);
-            let cfg = project_link(&link, &pool, &info, cfg_gen, buffer_generation, &layout);
+            let reference = inner
+                .table
+                .get_renderer(&renderer_id)
+                .and_then(|handle| handle.render_target_capabilities())
+                .map(|caps| caps.reference);
+            let cfg = project_link(
+                &link,
+                &pool,
+                &info,
+                cfg_gen,
+                buffer_generation,
+                &layout,
+                reference,
+            );
             if let Some(state) = inner.displays.get(&display_id) {
                 if state
                     .tx
@@ -1310,6 +1328,7 @@ impl Router {
                 );
             }
         }
+        self.reconcile_render_targets().await;
     }
 
     async fn resync_display_composition(self: &Arc<Self>, display_id: DisplayId) {
@@ -1404,7 +1423,11 @@ impl Router {
                                                 .await;
                                         }
                                     }
-                                    EventMsg::FormatCaps { .. } => {
+                                    EventMsg::RenderTargetResult { .. } => {
+                                        router.on_renderer_bind(&rid).await;
+                                        router.reconcile_buffer_flags().await;
+                                    }
+                                    EventMsg::FormatCaps { .. } | EventMsg::RenderTargetCapabilities { .. } => {
                                         router.reconcile_buffer_flags().await;
                                     }
                                     EventMsg::BindFailed { failure } => {
@@ -1500,6 +1523,7 @@ impl Router {
         } else {
             self.reconcile_registered_lifecycle(&id).await;
         }
+        self.reconcile_render_targets().await;
         self.refresh_runtime_health().await;
         true
     }
@@ -1507,6 +1531,12 @@ impl Router {
     pub async fn unregister_renderer(self: &Arc<Self>, id: &str) {
         let affected: Vec<DisplayId> = {
             let mut inner = self.inner.lock().await;
+            if let Some(handle) = inner.table.get_renderer(id) {
+                self.deadlines.cancel(deadline::DeadlineKey::RenderTarget(
+                    id.to_owned(),
+                    handle.process_generation,
+                ));
+            }
             let removed = inner.table.remove_renderer(id);
             inner.renderer_slots.remove(id);
             inner
@@ -1590,6 +1620,10 @@ impl Router {
             }
             let remove_slot = transition == RendererTransition::Remove;
             let state = slot.state.clone();
+            self.deadlines.cancel(deadline::DeadlineKey::RenderTarget(
+                exit.renderer_id.clone(),
+                exit.process_generation,
+            ));
             inner.table.detach_renderer(&exit.renderer_id);
             if let Some(task) = inner.renderer_tasks.remove(&exit.renderer_id) {
                 task.abort();
@@ -2122,12 +2156,17 @@ impl Router {
             }
             let fourcc = binding.pool.fourcc;
             let modifier = binding.pool.modifier;
+            let renderer = binding.renderer.clone();
+            let pool_generation = binding.pool.generation;
             state.failed_binding_generation = Some(buffer_generation);
             state.invalidate_consumption();
             if kind != ConsumerImportFailureKind::Unsupported {
                 return ConsumerImportFailureOutcome::Terminal;
             }
             let inserted = state.consumer_caps.blacklist.insert((fourcc, modifier));
+            if inserted && !renderer.retry_render_target_import(pool_generation) {
+                return ConsumerImportFailureOutcome::Terminal;
+            }
             (fourcc, modifier, inserted)
         };
         if inserted {
@@ -2469,7 +2508,7 @@ impl Router {
                     .get(&renderer_id)
                     .into_iter()
                     .flat_map(|waits| waits.values().cloned());
-                let conditions = evaluate_renderer_conditions(
+                let mut conditions = evaluate_renderer_conditions(
                     now,
                     &renderer_id,
                     status,
@@ -2479,6 +2518,15 @@ impl Router {
                     waits,
                     inner.generation_poisoned.get(&renderer_id),
                 );
+                if let Some(reason) = handle.render_target_problem() {
+                    conditions.push(RuntimeCondition {
+                        kind: RuntimeConditionKind::Hang,
+                        origin: RuntimeConditionOrigin::Renderer,
+                        reason,
+                        related_renderer_id: Some(renderer_id.clone()),
+                        related_display_id: None,
+                    });
+                }
                 renderer_conditions.insert(renderer_id, conditions);
             }
 
@@ -3449,6 +3497,7 @@ impl Router {
                     && Arc::ptr_eq(&binding.renderer, &renderer))
                 .then_some(binding)
                 .filter(|binding| state.failed_binding_generation != Some(binding.wire_generation))
+                .filter(|binding| binding.last_frame_seq.is_none_or(|last| seq > last))
                 .map(|binding| (state.info.id, binding.wire_generation))
             })
             .collect();
@@ -3506,13 +3555,16 @@ impl Router {
                     member: Some(member),
                 })
                 .is_ok();
-            if sent && completes_initial_frame {
-                state
+            if sent {
+                let binding = state
                     .binding
                     .as_mut()
-                    .expect("matching frame recipient lost its binding")
-                    .awaiting_initial_frame = false;
-                fulfilled_initial_frame = true;
+                    .expect("matching frame recipient lost its binding");
+                binding.last_frame_seq = Some(seq);
+                if completes_initial_frame {
+                    binding.awaiting_initial_frame = false;
+                    fulfilled_initial_frame = true;
+                }
             }
         }
         drop(inner);
@@ -3904,6 +3956,9 @@ impl Router {
                 let Some(renderer) = inner.table.get_renderer(&rid) else {
                     continue;
                 };
+                if renderer.automatic_resolution() {
+                    continue;
+                }
                 let Some(producer_caps) = renderer.format_caps() else {
                     continue; // legacy renderer — skip silently
                 };
@@ -3968,6 +4023,7 @@ impl Router {
                 log::warn!("router: NegotiateBuffers {rid}: {e}");
             }
         }
+        self.reconcile_render_targets().await;
     }
 }
 
@@ -5866,6 +5922,99 @@ mod tests {
         .unwrap()
     }
 
+    #[tokio::test(start_paused = true)]
+    async fn auto_resolution_router_aggregates_disabled_links_and_debounces_metrics() {
+        use crate::wallframe::ipc::uds::recv_control;
+        use crate::wallframe::renderer_manager::render_target::Size;
+        let mgr = Arc::new(RendererManager::new_default());
+        let router = Router::new(mgr.clone());
+        let mut small_registration = reg("small", 960, 540);
+        small_registration.consumer_caps.extent_max = (8192, 8192);
+        let small = router.register_display(small_registration).await;
+        let mut large_registration = reg("large", 1920, 1080);
+        large_registration.consumer_caps.extent_max = (8192, 8192);
+        let large = router.register_display(large_registration).await;
+        let (renderer, peer) = RendererHandle::test_stub_with_peer("auto", "image");
+        renderer.test_auto_resolution(Size {
+            width: 3840,
+            height: 2160,
+        });
+        let mut producer = reg("producer", 1, 1).consumer_caps;
+        producer.extent_max = (8192, 8192);
+        renderer.test_set_format_caps(producer);
+        mgr.register_test_handle(renderer.clone()).await;
+        let large_link = {
+            let mut inner = router.inner.lock().await;
+            inner.table.add_renderer(renderer.clone());
+            inner.table.add_link(renderer.id.clone(), small.id);
+            inner
+                .table
+                .add_link_with_enabled(renderer.id.clone(), large.id, false)
+        };
+        peer.set_read_timeout(Some(Duration::from_millis(20)))
+            .unwrap();
+        let target = || loop {
+            match recv_control(&peer).unwrap().0 {
+                ControlMsg::ConfigureRenderTarget { config } => break config,
+                ControlMsg::NegotiateBuffers { .. } => panic!("Auto entered legacy allocation"),
+                _ => {}
+            }
+        };
+        router.reconcile_render_targets().await;
+        let initial = target();
+        assert_eq!((initial.width, initial.height), (1920, 1080));
+        renderer.test_ack_render_target(initial.revision);
+        router.inner.lock().await.table.remove_link(large_link);
+        router.reconcile_render_targets().await;
+        tokio::time::advance(Duration::from_millis(9999)).await;
+        router.reconcile_render_targets().await;
+        assert!(recv_control(&peer).is_err());
+        tokio::time::advance(Duration::from_millis(1)).await;
+        router.reconcile_render_targets().await;
+        let shrunk = target();
+        assert_eq!((shrunk.width, shrunk.height), (960, 540));
+        renderer.test_ack_render_target(shrunk.revision);
+        router
+            .set_display_metrics(
+                small.id,
+                DisplayMetrics {
+                    width: 1280,
+                    height: 720,
+                    refresh_mhz: 60_000,
+                },
+            )
+            .await;
+        tokio::time::advance(Duration::from_secs(9)).await;
+        router
+            .set_display_metrics(
+                small.id,
+                DisplayMetrics {
+                    width: 1280,
+                    height: 720,
+                    refresh_mhz: 144_000,
+                },
+            )
+            .await;
+        tokio::time::advance(Duration::from_secs(1)).await;
+        router.reconcile_render_targets().await;
+        let grown = target();
+        assert_eq!((grown.width, grown.height), (1280, 720));
+        renderer.test_ack_render_target(grown.revision);
+        router.inner.lock().await.table.remove_display(small.id);
+        router.reconcile_render_targets().await;
+        tokio::time::advance(Duration::from_secs(20)).await;
+        router
+            .on_deadline_reached(deadline::DeadlineReached {
+                key: deadline::DeadlineKey::RenderTarget(
+                    renderer.id.clone(),
+                    renderer.process_generation + 1,
+                ),
+                token: renderer.process_generation + 1,
+            })
+            .await;
+        assert!(recv_control(&peer).is_err());
+    }
+
     #[tokio::test]
     async fn consumer_import_failure_resolves_binding_and_inserts_blacklist() {
         use crate::wallframe::dma::negotiate as N;
@@ -6113,7 +6262,7 @@ mod tests {
             rotation: Default::default(),
             flip: Default::default(),
         };
-        let cfg = project_link(&link, &pool, &info, 1, 7, &layout);
+        let cfg = project_link(&link, &pool, &info, 1, 7, &layout, None);
         assert_eq!((cfg.display_w, cfg.display_h), (1280.0, 720.0));
         assert_eq!(
             (cfg.source_x, cfg.source_y, cfg.source_w, cfg.source_h),
@@ -6154,7 +6303,7 @@ mod tests {
             },
             layout: canvas_layout,
         };
-        let cfg = project_link(&link, &pool, &info, 2, 1, &canvas_layout);
+        let cfg = project_link(&link, &pool, &info, 2, 1, &canvas_layout, None);
 
         assert!(cfg.source_w > 0.0);
         assert!(cfg.source_h > 0.0);
@@ -6519,6 +6668,65 @@ mod tests {
                 .await
                 .unwrap()
                 .effective_paused
+        );
+    }
+
+    #[tokio::test]
+    async fn image_cached_bind_replay_does_not_duplicate_the_queued_frame_event() {
+        let mgr = Arc::new(RendererManager::new_default());
+        let router = Router::new(mgr.clone());
+        let (renderer, mut records) = RendererHandle::test_stub_with_frame_records("r1", "image");
+        mgr.register_test_handle(renderer.clone()).await;
+        router.register_renderer(renderer.clone()).await;
+        let mut display = router.register_display(reg("A", 1920, 1080)).await;
+        drain_display_events(&mut display.rx);
+        renderer.test_publish_pool(fake_published_pool(2, 1281, 854));
+        renderer.test_set_latest_frame(FrameSnapshot {
+            buffer_generation: 2,
+            buffer_index: 0,
+            seq: 1,
+            release_point: 1,
+        });
+        router.on_renderer_bind("r1").await;
+        let events = drain_display_events(&mut display.rx);
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, DisplayOutEvent::Frame { seq: 1, .. }))
+                .count(),
+            1
+        );
+        router.on_renderer_frame("r1", 2, 0, 1, 1).await;
+        assert!(!drain_display_events(&mut display.rx)
+            .iter()
+            .any(|event| matches!(event, DisplayOutEvent::Frame { .. })));
+        match records.try_recv().unwrap() {
+            crate::wallframe::sync::FrameRecord::Register { consumers, .. } => {
+                assert!(consumers.is_empty())
+            }
+            _ => panic!("expected release registration"),
+        }
+        router.on_renderer_bind("r1").await;
+        assert!(!drain_display_events(&mut display.rx)
+            .iter()
+            .any(|event| matches!(
+                event,
+                DisplayOutEvent::Bind { .. } | DisplayOutEvent::Frame { .. }
+            )));
+        router.on_renderer_frame("r1", 2, 0, 2, 2).await;
+        assert_eq!(
+            drain_display_events(&mut display.rx)
+                .iter()
+                .filter(|event| matches!(
+                    event,
+                    DisplayOutEvent::Frame {
+                        seq: 2,
+                        member: Some(_),
+                        ..
+                    }
+                ))
+                .count(),
+            1
         );
     }
 
