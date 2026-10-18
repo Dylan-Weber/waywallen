@@ -46,6 +46,7 @@ impl super::RendererHandle {
         let mut state = self.render_target.lock().unwrap();
         state.policy = crate::plugin::renderer_registry::ResolutionPolicy::Auto;
         state.capabilities = Some(Capabilities {
+            native_extent: true,
             revision: 1,
             reference,
             min: Size {
@@ -232,6 +233,7 @@ pub struct Size {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Capabilities {
+    native_extent: bool,
     pub revision: u64,
     pub reference: Size,
     min: Size,
@@ -243,10 +245,11 @@ impl TryFrom<RenderTargetCapabilities> for Capabilities {
     type Error = &'static str;
 
     fn try_from(value: RenderTargetCapabilities) -> Result<Self, Self::Error> {
-        if value.mode != 1 || value.revision == 0 {
+        if !matches!(value.mode, 1 | 2) || value.revision == 0 {
             return Err("unsupported render target mode or revision");
         }
         let result = Self {
+            native_extent: value.mode == 1,
             revision: value.revision,
             reference: Size {
                 width: value.reference_width,
@@ -293,17 +296,30 @@ impl Capabilities {
         if !demand.is_finite() || demand <= 0.0 {
             return Err("invalid render target pixel density");
         }
+        let reference_limit = if self.native_extent {
+            self.reference
+        } else if self.reference.width >= self.reference.height {
+            Size {
+                width: 7680,
+                height: 4320,
+            }
+        } else {
+            Size {
+                width: 4320,
+                height: 7680,
+            }
+        };
         let limit = |reference: u32, max: u32, hardware: u32, alignment: u32| {
             reference.min(max).min(hardware) / alignment * alignment
         };
         let max_width = limit(
-            self.reference.width,
+            reference_limit.width,
             self.max.width,
             hardware_max.width,
             self.alignment.width,
         );
         let max_height = limit(
-            self.reference.height,
+            reference_limit.height,
             self.max.height,
             hardware_max.height,
             self.alignment.height,
@@ -311,8 +327,7 @@ impl Capabilities {
         let lower = (self.min.width as f64 / self.reference.width as f64)
             .max(self.min.height as f64 / self.reference.height as f64);
         let upper = (max_width as f64 / self.reference.width as f64)
-            .min(max_height as f64 / self.reference.height as f64)
-            .min(1.0);
+            .min(max_height as f64 / self.reference.height as f64);
         if lower > upper || upper <= 0.0 {
             return Err("incompatible render target extent limits");
         }
@@ -449,6 +464,7 @@ mod tests {
         handle.render_target.lock().unwrap().policy =
             crate::plugin::renderer_registry::ResolutionPolicy::Auto;
         handle.render_target.lock().unwrap().capabilities = Some(Capabilities {
+            native_extent: true,
             revision: 1,
             reference: Size {
                 width: 3840,
@@ -574,6 +590,44 @@ mod tests {
         state.finish(revision, false);
         state.desire(Some(4), now + RESIZE_DELAY * 2);
         assert_eq!(state.deadline(), None);
+    }
+
+    #[test]
+    fn render_target_scalable_extent_is_bounded_by_oriented_8k() {
+        for (width, height, max_width, max_height) in [
+            (1920, 1080, 7680, 4320),
+            (1080, 1920, 4320, 7680),
+            (1000, 1000, 4320, 4320),
+            (10000, 1000, 7680, 768),
+        ] {
+            let caps = Capabilities::try_from(RenderTargetCapabilities {
+                revision: 1,
+                mode: 2,
+                reference_width: width,
+                reference_height: height,
+                min_width: 1,
+                min_height: 1,
+                max_width: 65535,
+                max_height: 65535,
+                width_alignment: 1,
+                height_alignment: 1,
+            })
+            .unwrap();
+            assert_eq!(
+                caps.select(
+                    100.0,
+                    Size {
+                        width: 65535,
+                        height: 65535
+                    }
+                )
+                .unwrap(),
+                Size {
+                    width: max_width,
+                    height: max_height
+                }
+            );
+        }
     }
 
     #[test]

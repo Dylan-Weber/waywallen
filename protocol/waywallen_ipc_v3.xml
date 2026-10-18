@@ -265,7 +265,9 @@
     <field name="revision" type="u64" tag="1"/>
     <field name="reference_width" type="u32" tag="2"/>
     <field name="reference_height" type="u32" tag="3"/>
-    <!-- 1: fixed aspect, downscale only, runtime reconfiguration. -->
+    <!-- 1: native fixed aspect, downscale only. 2: scalable fixed aspect,
+         no native extent, bounded by 7680x4320 (orientation independent).
+         Both modes support runtime reconfiguration. -->
     <field name="mode" type="u32" tag="4"/>
     <field name="min_width" type="u32" tag="5"/>
     <field name="min_height" type="u32" tag="6"/>

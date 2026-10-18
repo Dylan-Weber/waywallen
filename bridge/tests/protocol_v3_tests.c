@@ -218,6 +218,23 @@ static void test_render_target_limits(void) {
     config.width                 = 1920;
     config.capabilities_revision = 2;
     assert(ww_bridge_render_target_directive(&caps, &config, &directive) != 0);
+    config.capabilities_revision = 1;
+    caps.mode                    = 2;
+    caps.max_width = caps.max_height = 65535;
+    config.width                     = 7680;
+    config.height                    = 4320;
+    assert(ww_bridge_render_target_directive(&caps, &config, &directive) == 0);
+    config.width  = 15360;
+    config.height = 8640;
+    assert(ww_bridge_render_target_directive(&caps, &config, &directive) != 0);
+    caps.reference_width  = 2160;
+    caps.reference_height = 3840;
+    config.width          = 4320;
+    config.height         = 7680;
+    assert(ww_bridge_render_target_directive(&caps, &config, &directive) == 0);
+    caps.reference_width = caps.reference_height = 1000;
+    config.width = config.height = 7680;
+    assert(ww_bridge_render_target_directive(&caps, &config, &directive) != 0);
 }
 
 int main(void) {

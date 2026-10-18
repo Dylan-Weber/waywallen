@@ -381,13 +381,20 @@ int ww_bridge_send_render_target_result(int sock, const waywallen_render_target_
 int ww_bridge_render_target_directive(const waywallen_render_target_capabilities_t* caps,
                                       const waywallen_render_target_config_t*       config,
                                       waywallen_buffer_directive_t*                 out) {
-    if (! caps || ! config || ! out || caps->mode != 1 || ! config->revision ||
+    if (! caps || ! config || ! out || (caps->mode != 1 && caps->mode != 2) ||
+        ! caps->reference_width || ! caps->reference_height || ! config->revision ||
         config->capabilities_revision != caps->revision || ! caps->width_alignment ||
         ! caps->height_alignment || ! config->width || ! config->height ||
         config->width < caps->min_width || config->height < caps->min_height ||
         config->width > caps->max_width || config->height > caps->max_height ||
-        config->width > caps->reference_width || config->height > caps->reference_height ||
         config->width % caps->width_alignment || config->height % caps->height_alignment)
+        return -EINVAL;
+    if (caps->mode == 1 &&
+        (config->width > caps->reference_width || config->height > caps->reference_height))
+        return -EINVAL;
+    if (caps->mode == 2 &&
+        (config->width > (caps->reference_width >= caps->reference_height ? 7680u : 4320u) ||
+         config->height > (caps->reference_width >= caps->reference_height ? 4320u : 7680u)))
         return -EINVAL;
     /* Both aligned dimensions must admit the same content scale. */
     if ((uint64_t)(config->width - caps->width_alignment) * caps->reference_height >=

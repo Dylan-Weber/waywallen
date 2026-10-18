@@ -56,12 +56,12 @@ fn paused_renderer_resizes_without_restarting() {
     let socket = common::tmp_sock("auto-resolution");
     let _cleanup = common::SockCleanup(socket.clone());
     let listener = UnixListener::bind(&socket).unwrap();
-    let mut child = common::ChildGuard(
-        Command::new(binary)
-            .args(["--ipc", socket.to_str().unwrap(), "--path", &media])
-            .spawn()
-            .unwrap(),
-    );
+    let mut command = Command::new(binary);
+    command.args(["--ipc", socket.to_str().unwrap(), "--path", &media]);
+    if let Ok(assets) = std::env::var("WAYWALLEN_AUTO_ASSETS_PATH") {
+        command.args(["--assets", &assets]);
+    }
+    let mut child = common::ChildGuard(command.spawn().unwrap());
     let (stream, _) = common::accept_with_timeout(&listener, Duration::from_secs(10))
         .unwrap()
         .unwrap();
@@ -114,9 +114,19 @@ fn paused_renderer_resizes_without_restarting() {
     let mut generation = 0;
     let mut sequence = 0;
     for (index, divisor) in [2, 1, 4, 2].into_iter().enumerate() {
-        let width = (caps.reference_width / divisor / caps.width_alignment * caps.width_alignment)
+        let scale = if caps.mode == 2
+            && index == 1
+            && caps.reference_width <= caps.max_width / 2
+            && caps.reference_height <= caps.max_height / 2
+        {
+            2
+        } else {
+            1
+        };
+        let width = (caps.reference_width * scale / divisor / caps.width_alignment
+            * caps.width_alignment)
             .max(caps.min_width);
-        let height = (caps.reference_height / divisor / caps.height_alignment
+        let height = (caps.reference_height * scale / divisor / caps.height_alignment
             * caps.height_alignment)
             .max(caps.min_height);
         let config = RenderTargetConfig {
@@ -167,6 +177,7 @@ fn paused_renderer_resizes_without_restarting() {
         )
         .unwrap();
         let mut frame_seen = false;
+        let mut result_seen = false;
         loop {
             let (event, fds) = recv_event(&stream).unwrap();
             match event {
@@ -178,6 +189,7 @@ fn paused_renderer_resizes_without_restarting() {
                     old_buffers.extend(fds);
                 }
                 EventMsg::FrameReady { frame } => {
+                    assert_eq!(pools.len(), index + 1, "frame arrived before the new pool");
                     assert!(!frame_seen, "paused renderer published multiple frames");
                     frame_seen = true;
                     assert!(frame.sequence > sequence);
@@ -201,11 +213,13 @@ fn paused_renderer_resizes_without_restarting() {
                     assert_eq!(result.revision, config.revision);
                     assert_eq!(result.status, 0, "{}", result.message);
                     assert_eq!(result.pool_generation, generation);
-                    assert!(frame_seen);
-                    break;
+                    result_seen = true;
                 }
                 EventMsg::Error { message } => panic!("{message}"),
                 _ => {}
+            }
+            if frame_seen && result_seen {
+                break;
             }
         }
         assert!(child.0.try_wait().unwrap().is_none());
