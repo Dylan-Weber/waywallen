@@ -1509,6 +1509,7 @@ pub(super) async fn dispatch_inner(
                             title: item.title,
                             preview_url: item.preview_url,
                             author: item.author,
+                            author_avatar_url: item.author_avatar_url,
                             downloaded,
                             source_id: source_id.clone(),
                             wp_type: item.wp_type,
@@ -1645,6 +1646,7 @@ pub(super) async fn dispatch_inner(
                         height: 0,
                         web_url: String::new(),
                         author: String::new(),
+                        author_avatar_url: String::new(),
                     }));
                 }
             };
@@ -1659,6 +1661,7 @@ pub(super) async fn dispatch_inner(
                     height: details.height.unwrap_or(0),
                     web_url: details.web_url,
                     author: details.author,
+                    author_avatar_url: details.author_avatar_url,
                 }),
                 Err(e) => Res::RemoteDetails(pb::RemoteDetailsResponse {
                     description: String::new(),
@@ -1669,6 +1672,7 @@ pub(super) async fn dispatch_inner(
                     height: 0,
                     web_url: String::new(),
                     author: String::new(),
+                    author_avatar_url: String::new(),
                 }),
             }
         }
