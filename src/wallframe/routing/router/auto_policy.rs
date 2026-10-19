@@ -49,6 +49,18 @@ impl Router {
         self.refresh_auto_policy(false).await;
     }
 
+    pub async fn update_power_state(self: &Arc<Self>, on_battery: bool) {
+        {
+            let mut inner = self.inner.lock().await;
+            if inner.on_battery == on_battery {
+                return;
+            }
+            inner.on_battery = on_battery;
+        }
+        log::info!("power: on_battery={on_battery}");
+        self.refresh_auto_policy(false).await;
+    }
+
     pub(super) async fn refresh_auto_policy(self: &Arc<Self>, reset: bool) {
         let mut support_changed = false;
         let changed = {
@@ -64,6 +76,7 @@ impl Router {
                 session_locked: inner.session_locked,
                 session_inactive: inner.session_inactive,
                 gamemode: inner.gamemode,
+                on_battery: inner.on_battery,
             };
             inner
                 .global_auto_replay

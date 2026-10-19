@@ -2122,6 +2122,10 @@ Related display: #%1</source>
         <source>Excluded windows</source>
         <translation>Исключённые окна</translation>
     </message>
+    <message>
+        <source>On battery</source>
+        <translation>От батареи</translation>
+    </message>
 </context>
 <context>
     <name>SourceManagePage</name>

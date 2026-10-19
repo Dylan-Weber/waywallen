@@ -1737,6 +1737,7 @@ message AutoReplayPolicy {
   AutoScope fullscreen_scope = 20;
   AutoAction gamemode = 21;
   WindowExclusions window_exclusions = 22;
+  AutoAction on_battery = 23;
 }
 
 enum PauseEffectKind {

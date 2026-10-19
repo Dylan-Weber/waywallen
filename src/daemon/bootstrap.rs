@@ -321,6 +321,19 @@ pub async fn run(cli: DaemonConfig) -> anyhow::Result<()> {
         );
     }
 
+    {
+        let router = router.clone();
+        let shutdown = state.shutdown_subscribe();
+        state.tasks.spawn_async(
+            tasks::TaskKind::Service,
+            "service/power-monitor",
+            async move {
+                system::power::run(router, shutdown).await;
+                Ok(())
+            },
+        );
+    }
+
     system::mpris::spawn(state.clone());
 
     // Start display infrastructure before work that may need a display.
