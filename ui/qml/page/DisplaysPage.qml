@@ -545,8 +545,8 @@ MD.Page {
         const objects = key.kind === "canvas" ? W.App.displayManager.canvases : W.App.displayManager.displays;
         return (objects || []).find(object => object.id === key.id) || null;
     }
-    readonly property var selectedDisplayObject: selectedKind === "display" ? selected : null
-    readonly property var selectedCanvasObject: selectedKind === "canvas" ? selected : null
+    readonly property W.Display selectedDisplayObject: selected as W.Display
+    readonly property W.Canvas selectedCanvasObject: selected as W.Canvas
 
     MD.SplitView {
         id: pageContent
@@ -1283,7 +1283,7 @@ MD.Page {
                                     return root.selectedCanvasObject?.effectiveLayout || ({});
                                 return root.selected.displayLayout || root.selected.effectiveLayout || ({});
                             }
-                            wallpaperOverride: !!root.selected && root.selectedKind === "display" && root.selected.layoutOverriddenByWallpaper
+                            wallpaperOverride: root.selectedDisplayObject?.layoutOverriddenByWallpaper ?? false
                             resetEnabled: {
                                 if (!root.selected)
                                     return false;
