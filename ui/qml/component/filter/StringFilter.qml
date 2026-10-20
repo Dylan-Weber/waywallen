@@ -59,15 +59,20 @@ QtObject {
                     anchors.rightMargin: 4
                     anchors.verticalCenter: parent.verticalCenter
                     focus: true
+                    typescale: MD.Token.typescale.label_large
+                    color: valueChip.mdState.textColor
                     text: root.value
                     onAccepted: editor.submit()
                 }
 
-                MD.IconButton {
+                MD.StandardIconButton {
                     id: confirmButton
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    mdState.size: MD.Enum.XS
+                    implicitBackgroundSize: 0
+                    padding: 7
+                    icon.width: 18
+                    icon.height: 18
                     icon.name: MD.Token.icon.check
                     Accessible.name: qsTr("Apply")
                     onClicked: editor.submit()
