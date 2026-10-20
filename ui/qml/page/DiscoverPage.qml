@@ -273,7 +273,7 @@ MD.Page {
 
     MD.Action {
         id: filterAction
-        icon.name: MD.Token.icon.filter_list
+        icon.name: MD.Token.icon.filter_alt
         text: qsTr("Filters")
         enabled: m_filter_dialog.filters.length > 0
         checked: searchQuery.tags.length > 0
