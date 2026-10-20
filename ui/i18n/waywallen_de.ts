@@ -2278,6 +2278,10 @@ Betroffener Bildschirm: #%1</translation>
         <source>Maximum cache size</source>
         <translation>Maximale Größe des Zwischenspeichers</translation>
     </message>
+    <message>
+        <source>On battery</source>
+        <translation>Im Akkubetrieb</translation>
+    </message>
 </context>
 <context>
     <name>SidebarNowPlaying</name>

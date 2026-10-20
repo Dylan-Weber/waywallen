@@ -2175,6 +2175,10 @@ Related display: #%1</source>
         <source>Maximum cache size</source>
         <translation>最大缓存大小</translation>
     </message>
+    <message>
+        <source>On battery</source>
+        <translation>使用电池时</translation>
+    </message>
 </context>
 <context>
     <name>SourceManagePage</name>

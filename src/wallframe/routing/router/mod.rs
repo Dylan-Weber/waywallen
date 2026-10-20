@@ -631,6 +631,7 @@ struct Inner {
     session_inactive: bool,
     /// Set when GameMode is active.
     gamemode: bool,
+    on_battery: bool,
     /// User-requested global pause state. This shares the same
     /// daemon-owned lifecycle path as auto replay.
     manual_paused: bool,
@@ -780,6 +781,7 @@ impl Router {
                 session_locked: false,
                 session_inactive: false,
                 gamemode: false,
+                on_battery: false,
                 manual_paused: false,
                 manual_muted: false,
                 manual_stopped: false,

@@ -115,10 +115,11 @@ pub enum AutoCondition {
     SessionLocked,
     SessionInactive,
     GameMode,
+    OnBattery,
 }
 
 impl AutoCondition {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::AnyWindow,
         Self::Focused,
         Self::Maximized,
@@ -126,12 +127,13 @@ impl AutoCondition {
         Self::SessionLocked,
         Self::SessionInactive,
         Self::GameMode,
+        Self::OnBattery,
     ];
 
     pub fn is_global(self) -> bool {
         matches!(
             self,
-            Self::SessionLocked | Self::SessionInactive | Self::GameMode
+            Self::SessionLocked | Self::SessionInactive | Self::GameMode | Self::OnBattery
         )
     }
 }
@@ -248,6 +250,7 @@ pub struct AutoReplayPolicy {
     pub session_locked: AutoAction,
     pub session_inactive: AutoAction,
     pub gamemode: AutoAction,
+    pub on_battery: AutoAction,
     pub resume_delay_ms: u32,
 }
 
@@ -266,6 +269,7 @@ impl Default for AutoReplayPolicy {
             session_locked: AutoAction::Stop,
             session_inactive: AutoAction::Stop,
             gamemode: AutoAction::None,
+            on_battery: AutoAction::None,
             resume_delay_ms: DEFAULT_AUTO_REPLAY_RESUME_DELAY_MS,
         }
     }
@@ -330,6 +334,7 @@ impl AutoReplayPolicy {
             AutoCondition::SessionLocked => self.session_locked,
             AutoCondition::SessionInactive => self.session_inactive,
             AutoCondition::GameMode => self.gamemode,
+            AutoCondition::OnBattery => self.on_battery,
         }
     }
 
@@ -342,6 +347,7 @@ impl AutoReplayPolicy {
             AutoCondition::SessionLocked => &mut self.session_locked,
             AutoCondition::SessionInactive => &mut self.session_inactive,
             AutoCondition::GameMode => &mut self.gamemode,
+            AutoCondition::OnBattery => &mut self.on_battery,
         };
         *slot = action;
     }
@@ -1032,6 +1038,7 @@ impl Settings {
                 if policy.session_locked != global.session_locked
                     || policy.session_inactive != global.session_inactive
                     || policy.gamemode != global.gamemode
+                    || policy.on_battery != global.on_battery
                 {
                     log::warn!(
                         "display {name}: migrating global auto replay conditions to global policy"
@@ -1039,6 +1046,7 @@ impl Settings {
                     policy.session_locked = global.session_locked;
                     policy.session_inactive = global.session_inactive;
                     policy.gamemode = global.gamemode;
+                    policy.on_battery = global.on_battery;
                     changed = true;
                 }
             }
