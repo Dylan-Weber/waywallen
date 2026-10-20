@@ -1201,6 +1201,9 @@ message RemoteItem {
   bool   downloaded = 5;
   string source_id = 6;
   string wp_type = 7;
+  // Optional picture of the author, as a URL the source plugin supplied.
+  // Empty when the source has none; the UI sizes it, not the source.
+  string author_avatar_url = 8;
 }
 
 message RemoteSearchRequest {
@@ -1249,6 +1252,9 @@ message RemoteDetailsResponse {
   // Empty unless the source knows an author it could not already put on the
   // RemoteItem, e.g. one only its per-item endpoint reports.
   string author = 8;
+  // Same as RemoteItem.author_avatar_url, for sources that only learn the
+  // author from their per-item endpoint.
+  string author_avatar_url = 9;
 }
 
 enum RemoteDownloadState {
