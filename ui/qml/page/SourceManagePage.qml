@@ -107,7 +107,7 @@ MD.Page {
                             icon.name: MD.Token.icon.close
                             Accessible.name: qsTr("Clear hidden state")
                             MD.ToolTip.text: Accessible.name
-                            MD.ToolTip.visible: hovered
+                            MD.ToolTip.visible: mdState.interactions.hovered
                             onClicked: root.libraryQuery.toggleLibraryHidden(missingSourceItem.modelData)
                         }
                     }
@@ -147,24 +147,24 @@ MD.Page {
                         icon.name: MD.Token.icon.edit
                         Accessible.name: qsTr("Rename library")
                         MD.ToolTip.text: Accessible.name
-                        MD.ToolTip.visible: hovered
+                        MD.ToolTip.visible: mdState.interactions.hovered
                         onClicked: renameDialog.openFor(sourceItem.modelData)
                     }
-                    MD.IconButton {
+                    MD.IconToggleButton {
                         visible: root.libraryQuery !== null
                         enabled: root.visibilityReady
                         checked: !root.hiddenIds.includes(sourceItem.modelData.id)
                         icon.name: checked ? MD.Token.icon.visibility : MD.Token.icon.visibility_off
                         Accessible.name: checked ? qsTr("Hide source") : qsTr("Show source")
                         MD.ToolTip.text: Accessible.name
-                        MD.ToolTip.visible: hovered
-                        onClicked: root.libraryQuery.toggleLibraryHidden(sourceItem.modelData.id)
+                        MD.ToolTip.visible: mdState.interactions.hovered
+                        onCheckedChangeRequested: root.libraryQuery.toggleLibraryHidden(sourceItem.modelData.id)
                     }
                     MD.IconButton {
                         icon.name: MD.Token.icon.delete
                         Accessible.name: qsTr("Remove library")
                         MD.ToolTip.text: Accessible.name
-                        MD.ToolTip.visible: hovered
+                        MD.ToolTip.visible: mdState.interactions.hovered
                         onClicked: {
                             removeQuery.libraryId = sourceItem.modelData.id;
                             removeQuery.reload();

@@ -529,19 +529,19 @@ MD.Page {
                         MD.SegmentedButton {
                             text: qsTr("Light")
                             checked: W.Global.themeMode === "light"
-                            onClicked: W.Global.setThemeMode("light")
+                            onCheckedChangeRequested: W.Global.setThemeMode("light")
                         }
 
                         MD.SegmentedButton {
                             text: qsTr("Dark")
                             checked: W.Global.themeMode === "dark"
-                            onClicked: W.Global.setThemeMode("dark")
+                            onCheckedChangeRequested: W.Global.setThemeMode("dark")
                         }
 
                         MD.SegmentedButton {
                             text: qsTr("System")
                             checked: W.Global.themeMode === "system"
-                            onClicked: W.Global.setThemeMode("system")
+                            onCheckedChangeRequested: W.Global.setThemeMode("system")
                         }
                     }
                 }
@@ -566,13 +566,13 @@ MD.Page {
                         MD.SegmentedButton {
                             text: qsTr("Custom")
                             checked: W.Global.accentMode === "custom"
-                            onClicked: W.Global.setAccentMode("custom")
+                            onCheckedChangeRequested: W.Global.setAccentMode("custom")
                         }
 
                         MD.SegmentedButton {
                             text: qsTr("System")
                             checked: W.Global.accentMode === "system"
-                            onClicked: W.Global.setAccentMode("system")
+                            onCheckedChangeRequested: W.Global.setAccentMode("system")
                         }
                     }
                 }
@@ -613,7 +613,7 @@ MD.Page {
                         Layout.preferredWidth: 180
                         mdState.size: MD.Enum.S
                         model: W.App.availableUiLanguages.map(language => language.label)
-                        onActivated: index => {
+                        onSelectionChangeRequested: index => {
                             const languages = W.App.availableUiLanguages;
                             if (index < 0 || index >= languages.length)
                                 return;
@@ -668,7 +668,7 @@ MD.Page {
                             mdState.size: MD.Enum.S
                             model: autoReplayItem.selectableScope ? root.kAutoScopes.map(o => o.label) : [qsTr("All displays")]
                             Accessible.name: qsTr("Applies to")
-                            onActivated: idx => root._mutAutoReplay(policy => {
+                            onSelectionChangeRequested: idx => root._mutAutoReplay(policy => {
                                 policy[autoReplayItem.modelData.key + "Scope"] = root.kAutoScopes[idx].value;
                             })
                         }
@@ -684,7 +684,7 @@ MD.Page {
                             Layout.maximumWidth: 120
                             mdState.size: MD.Enum.S
                             model: autoReplayItem.actions.map(o => o.label)
-                            onActivated: idx => root._updateAutoReplayAction(
+                            onSelectionChangeRequested: idx => root._updateAutoReplayAction(
                                 autoReplayItem.modelData.key,
                                 autoReplayItem.actions[idx].value)
                         }
@@ -722,7 +722,7 @@ MD.Page {
                         maxVisibleStops: 10
                         valueText: Math.round(value).toString()
                         valueMaxText: "2000"
-                        onMoved: root._mutAutoReplay(policy => {
+                        onValueChangeRequested: value => root._mutAutoReplay(policy => {
                             policy.resumeDelayMs = Math.round(value);
                         })
                     }
@@ -784,7 +784,7 @@ MD.Page {
                     MD.Switch {
                         id: m_sidebar_auto_expand
                         checked: W.Global.sidebarAutoExpand
-                        onToggled: W.Global.sidebarAutoExpand = checked
+                        onCheckedChangeRequested: checked => W.Global.sidebarAutoExpand = checked
                     }
                 }
             }
@@ -815,7 +815,7 @@ MD.Page {
                     MD.Switch {
                         id: m_single_ui
                         checked: W.Global.singleUiEnabled
-                        onToggled: {
+                        onCheckedChangeRequested: checked => {
                             W.Global.singleUiEnabled = checked;
                             W.App.setSingleUiEnabled(checked);
                         }
@@ -848,7 +848,7 @@ MD.Page {
 
                     MD.Switch {
                         checked: W.DaemonDBusClient.quitOnDaemonShutdown
-                        onToggled: W.DaemonDBusClient.quitOnDaemonShutdown = checked
+                        onCheckedChangeRequested: checked => W.DaemonDBusClient.quitOnDaemonShutdown = checked
                     }
                 }
             }
@@ -879,7 +879,7 @@ MD.Page {
 
                     MD.Switch {
                         checked: W.UpdateChecker.enabled
-                        onToggled: W.UpdateChecker.enabled = checked
+                        onCheckedChangeRequested: checked => W.UpdateChecker.enabled = checked
                     }
                 }
             }
@@ -901,7 +901,7 @@ MD.Page {
                     MD.Switch {
                         id: m_autostart
                         enabled: !autostartGetQ.querying && !autostartSetQ.querying
-                        onClicked: {
+                        onCheckedChangeRequested: checked => {
                             autostartSetQ.enabled = checked;
                             autostartSetQ.reload();
                         }
@@ -941,7 +941,7 @@ MD.Page {
 
                     MD.Switch {
                         id: m_hide_tray_icon
-                        onToggled: root._mut(g => {
+                        onCheckedChangeRequested: checked => root._mut(g => {
                             g.hideTrayIcon = checked;
                         })
                     }
@@ -981,7 +981,7 @@ MD.Page {
                     MD.Switch {
                         id: m_debug_logging
                         enabled: !getQ.wwLogActive
-                        onToggled: root._mut(g => {
+                        onCheckedChangeRequested: checked => root._mut(g => {
                             g.debugLoggingEnabled = checked;
                         })
                     }
@@ -1030,7 +1030,7 @@ MD.Page {
 
                     MD.Switch {
                         id: m_duplicate_renderers
-                        onToggled: root._mut(g => {
+                        onCheckedChangeRequested: checked => root._mut(g => {
                             g.duplicateRenderers = checked;
                         })
                     }
@@ -1057,7 +1057,7 @@ MD.Page {
 
                     MD.Switch {
                         id: m_pointer_forwarding
-                        onToggled: root._mut(g => {
+                        onCheckedChangeRequested: checked => root._mut(g => {
                             g.pointerForwardingEnabled = checked;
                         })
                     }
@@ -1084,7 +1084,7 @@ MD.Page {
 
                     MD.Switch {
                         id: m_plugin_update_notifications
-                        onToggled: root._mut(g => {
+                        onCheckedChangeRequested: checked => root._mut(g => {
                             g.pluginUpdateNotifications = checked;
                         })
                     }
@@ -1113,7 +1113,7 @@ MD.Page {
 
                     MD.Switch {
                         id: m_pause_effect_enabled
-                        onToggled: root._mutPauseEffect(config => {
+                        onCheckedChangeRequested: checked => root._mutPauseEffect(config => {
                             config.kind = checked
                                 ? WC.PauseEffectKind.PAUSE_EFFECT_KIND_BLUR
                                 : WC.PauseEffectKind.PAUSE_EFFECT_KIND_NONE;
@@ -1153,7 +1153,7 @@ MD.Page {
                         maxVisibleStops: 8
                         valueText: Math.round(value).toString()
                         valueMaxText: "64"
-                        onMoved: root._mutPauseEffect(config => {
+                        onValueChangeRequested: value => root._mutPauseEffect(config => {
                             config.blur.radius = Math.round(value);
                         })
                     }
@@ -1189,7 +1189,7 @@ MD.Page {
                         Layout.preferredWidth: 180
                         mdState.size: MD.Enum.S
                         model: root.kTransitionKinds.map(o => o.label)
-                        onActivated: idx => root._mutTransition(config => {
+                        onSelectionChangeRequested: idx => root._mutTransition(config => {
                             config.kind = root.kTransitionKinds[idx].value;
                         })
                     }
@@ -1227,7 +1227,7 @@ MD.Page {
                         maxVisibleStops: 10
                         valueText: Math.round(value).toString()
                         valueMaxText: "3000"
-                        onMoved: root._mutTransition(config => {
+                        onValueChangeRequested: value => root._mutTransition(config => {
                             config.durationMs = Math.round(value);
                         })
                     }
@@ -1264,7 +1264,7 @@ MD.Page {
                         Layout.preferredWidth: 220
                         mdState.size: MD.Enum.S
                         model: root.kWipeDirections.map(o => o.label)
-                        onActivated: idx => root._mutTransition(config => {
+                        onSelectionChangeRequested: idx => root._mutTransition(config => {
                             config.angle = root.kWipeDirections[idx].value;
                         })
                     }
@@ -1300,7 +1300,7 @@ MD.Page {
                         maxVisibleStops: 10
                         valueText: Math.round(value).toString()
                         valueMaxText: "100"
-                        onMoved: root._mutTransition(config => {
+                        onValueChangeRequested: value => root._mutTransition(config => {
                             config.originX = Math.round(value);
                         })
                     }
@@ -1342,7 +1342,7 @@ MD.Page {
                         maxVisibleStops: 10
                         valueText: Math.round(value).toString()
                         valueMaxText: "100"
-                        onMoved: root._mutTransition(config => {
+                        onValueChangeRequested: value => root._mutTransition(config => {
                             config.originY = Math.round(value);
                         })
                     }
@@ -1377,7 +1377,7 @@ MD.Page {
 
                     MD.Switch {
                         id: m_renderer_enable_audio
-                        onToggled: root._mut(g => {
+                        onCheckedChangeRequested: checked => root._mut(g => {
                             g["renderer.enable_audio"] = checked;
                         })
                     }
@@ -1404,7 +1404,7 @@ MD.Page {
 
                     MD.Switch {
                         id: m_audio_capture_enabled
-                        onToggled: root._mut(g => {
+                        onCheckedChangeRequested: checked => root._mut(g => {
                             g.audioCaptureEnabled = checked;
                         })
                     }
@@ -1439,7 +1439,7 @@ MD.Page {
                         maxVisibleStops: 10
                         valueText: Math.round(value).toString()
                         valueMaxText: "100"
-                        onMoved: root._mut(g => {
+                        onValueChangeRequested: value => root._mut(g => {
                             g["renderer.volume"] = Math.round(value);
                         })
                     }
@@ -1472,7 +1472,7 @@ MD.Page {
 
                     MD.Switch {
                         id: m_mute_when_other_audio
-                        onToggled: root._mut(g => {
+                        onCheckedChangeRequested: checked => root._mut(g => {
                             g.muteWhenOtherAudio = checked;
                         })
                     }
@@ -1507,7 +1507,7 @@ MD.Page {
                         maxVisibleStops: 10
                         valueText: Math.round(value).toString()
                         valueMaxText: "2000"
-                        onMoved: root._mut(g => {
+                        onValueChangeRequested: value => root._mut(g => {
                             g.audioFadeMs = Math.round(value);
                         })
                     }
@@ -1545,7 +1545,7 @@ MD.Page {
                         Layout.preferredWidth: 180
                         mdState.size: MD.Enum.S
                         model: root.kQueueModes.map(o => o.label)
-                        onActivated: idx => root._mut(g => {
+                        onSelectionChangeRequested: idx => root._mut(g => {
                             g.queueMode = root.kQueueModes[idx].value;
                         })
                     }
@@ -1648,16 +1648,10 @@ MD.Page {
                     stepSize: 256
                     snapMode: MD.Slider.SnapAlways
                     maxVisibleStops: 8
-                    valueText: root.formatBytes(Math.round(value) * 1024 * 1024)
+                    live: false
+                    valueText: root.formatBytes(Math.round(previewValue) * 1024 * 1024)
                     valueMaxText: root.formatBytes(to * 1024 * 1024)
-                    onMoved: {
-                        if (!pressed)
-                            W.Global.networkCacheMaximumMiB = Math.round(value);
-                    }
-                    onPressedChanged: {
-                        if (!pressed)
-                            W.Global.networkCacheMaximumMiB = Math.round(value);
-                    }
+                    onValueChangeRequested: value => W.Global.networkCacheMaximumMiB = Math.round(value)
 
                     Binding {
                         target: m_cache_maximum_slider

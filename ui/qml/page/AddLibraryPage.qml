@@ -8,6 +8,8 @@ MD.Page {
     id: root
     title: qsTr("Add Library")
     property string pathError: ""
+    property string selectedPlugin: ""
+    onSelectedPluginChanged: root.pathError = ""
 
     W.SourceListQuery {
         id: sourceQuery
@@ -44,17 +46,10 @@ MD.Page {
         onFinished: MD.Util.closePopup(root.MD.MProp.page)
     }
 
-    MD.ButtonGroup {
-        id: pluginGroup
-        exclusive: true
-        property string selectedPlugin: ""
-        onSelectedPluginChanged: root.pathError = ""
-    }
-
     readonly property var selectedSource: {
         const list = sourceQuery.sources || [];
         for (let i = 0; i < list.length; ++i) {
-            if (list[i].name === pluginGroup.selectedPlugin)
+            if (list[i].name === root.selectedPlugin)
                 return list[i];
         }
         return null;
@@ -94,9 +89,9 @@ MD.Page {
                     model: sourceQuery.sources
                     delegate: MD.FilterChip {
                         required property var modelData
-                        MD.ButtonGroup.group: pluginGroup
                         text: modelData.name
-                        onClicked: pluginGroup.selectedPlugin = checked ? modelData.name : ""
+                        selected: root.selectedPlugin === modelData.name
+                        onSelectionRequested: root.selectedPlugin = modelData.name
                     }
                 }
             }
@@ -154,11 +149,11 @@ MD.Page {
                 Layout.fillWidth: true
                 text: qsTr("Add Library")
                 busy: addQuery.querying
-                enabled: !addQuery.querying && pluginGroup.selectedPlugin !== "" && pathInput.text !== ""
+                enabled: !addQuery.querying && root.selectedPlugin !== "" && pathInput.text !== ""
                 mdState.type: MD.Enum.BtFilled
                 onClicked: {
                     root.pathError = "";
-                    addQuery.pluginName = pluginGroup.selectedPlugin;
+                    addQuery.pluginName = root.selectedPlugin;
                     addQuery.path = pathInput.text;
                     addQuery.name = nameInput.text;
                     addQuery.reload();

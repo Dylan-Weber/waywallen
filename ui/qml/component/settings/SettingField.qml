@@ -227,7 +227,7 @@ ColumnLayout {
             MD.Switch {
                 id: sw
                 checked: root.value === "true"
-                onToggled: root._emit(checked ? "true" : "false")
+                onCheckedChangeRequested: checked => root._emit(checked ? "true" : "false")
                 Connections {
                     target: root
                     function onValueChanged() {
@@ -261,7 +261,7 @@ ColumnLayout {
             function displayValue(v) {
                 return root._isIntegerType(root.schema.type) ? Math.round(v).toString() : Number(v).toFixed(2);
             }
-            onMoved: {
+            onValueChangeRequested: value => {
                 if (root._isIntegerType(root.schema.type)) {
                     root._emit(Math.round(value).toString());
                 } else {
@@ -335,7 +335,7 @@ ColumnLayout {
             mdState.size: MD.Enum.S
             model: root.schema.choices
             currentIndex: Math.max(0, root.schema.choices.indexOf(root.value))
-            onActivated: root._emit(root.schema.choices[currentIndex])
+            onSelectionChangeRequested: index => root._emit(root.schema.choices[index])
             Connections {
                 target: root
                 function onValueChanged() {
@@ -372,13 +372,13 @@ ColumnLayout {
                         ? root.schema.choices.indexOf(modelData.value) >= 0
                         : modelValue >= parent.loValue && modelValue <= parent.hiValue
                     text: modelData.label
-                    checked: root.value === modelData.value
-                    onClicked: root._emit(modelData.value)
+                    selected: root.value === modelData.value
+                    onSelectionRequested: root._emit(modelData.value)
                     Connections {
                         target: root
                         function onValueChanged() {
                             const c = root.value === resChip.modelData.value;
-                            if (resChip.checked !== c) resChip.checked = c;
+                            if (resChip.selected !== c) resChip.selected = c;
                         }
                     }
                 }
@@ -397,13 +397,13 @@ ColumnLayout {
             MD.FilterChip {
                 id: autoChip
                 text: qsTr("Auto")
-                checked: root.value === ""
-                onClicked: root._emit("")
+                selected: root.value === ""
+                onSelectionRequested: root._emit("")
                 Connections {
                     target: root
                     function onValueChanged() {
                         const c = root.value === "";
-                        if (autoChip.checked !== c) autoChip.checked = c;
+                        if (autoChip.selected !== c) autoChip.selected = c;
                     }
                 }
             }
@@ -415,17 +415,17 @@ ColumnLayout {
                     required property var modelData
                     text: (modelData.driver || "drm")
                         + " " + modelData.renderMajor + ":" + modelData.renderMinor
-                    checked: root.value === modelData.renderNode
+                    selected: root.value === modelData.renderNode
                     enabled: modelData.renderNode.length > 0
-                    onClicked: root._emit(modelData.renderNode)
-                    MD.ToolTip.visible: gpuChip.hovered
+                    onSelectionRequested: root._emit(modelData.renderNode)
+                    MD.ToolTip.visible: gpuChip.mdState.interactions.hovered
                     MD.ToolTip.delay: 300
                     MD.ToolTip.text: W.GpuDetails.toolTipText(gpuChip.modelData)
                     Connections {
                         target: root
                         function onValueChanged() {
                             const c = root.value === gpuChip.modelData.renderNode;
-                            if (gpuChip.checked !== c) gpuChip.checked = c;
+                            if (gpuChip.selected !== c) gpuChip.selected = c;
                         }
                     }
                 }

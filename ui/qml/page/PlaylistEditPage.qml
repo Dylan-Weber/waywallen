@@ -382,14 +382,14 @@ MD.Page {
                                 filterModel.filterLogics = [];
                             }
                             MD.ToolTip.text: qsTranslate("WallpaperFilterDialog", "Clear rules")
-                            MD.ToolTip.visible: hovered
+                            MD.ToolTip.visible: mdState.interactions.hovered
                         }
 
                         MD.IconButton {
                             icon.name: MD.Token.icon.add_box
                             onClicked: filterModel.appendNewGroup()
                             MD.ToolTip.text: qsTranslate("WallpaperFilterDialog", "Add group")
-                            MD.ToolTip.visible: hovered
+                            MD.ToolTip.visible: mdState.interactions.hovered
                         }
                     }
 
@@ -429,19 +429,19 @@ MD.Page {
                             MD.SegmentedButton {
                                 text: qsTr("Sequential")
                                 checked: root.draftMode === 1
-                                onClicked: root.draftMode = 1
+                                onCheckedChangeRequested: root.draftMode = 1
                             }
 
                             MD.SegmentedButton {
                                 text: qsTr("Shuffle")
                                 checked: root.draftMode === 2
-                                onClicked: root.draftMode = 2
+                                onCheckedChangeRequested: root.draftMode = 2
                             }
 
                             MD.SegmentedButton {
                                 text: qsTr("Random")
                                 checked: root.draftMode === 3
-                                onClicked: root.draftMode = 3
+                                onCheckedChangeRequested: root.draftMode = 3
                             }
                         }
                     }
@@ -554,7 +554,7 @@ MD.Page {
                     MD.Switch {
                         enabled: root.canEdit && root.draftMode !== 1
                         checked: root.draftMode === 1 || root.draftSynchronizedSelection
-                        onClicked: root.draftSynchronizedSelection = checked
+                        onCheckedChangeRequested: checked => root.draftSynchronizedSelection = checked
                     }
                 }
 
@@ -687,7 +687,7 @@ MD.Page {
                         enabled: root.canEdit
                         icon.name: MD.Token.icon.delete
                         onClicked: root.removeDraftEntry(wallpaperDelegate.entryId)
-                        MD.ToolTip.visible: hovered
+                        MD.ToolTip.visible: mdState.interactions.hovered
                         MD.ToolTip.text: qsTr("Remove from playlist")
                     }
                 }
