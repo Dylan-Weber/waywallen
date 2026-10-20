@@ -41,7 +41,7 @@ QtObject {
             visible: root.condition !== WC.StringCondition.STRING_CONDITION_UNSPECIFIED
             text: root.value
             rightPadding: edit ? 0 : 16
-            onClicked: edit = true
+            onSelectionRequested: edit = true
             editDelegate: FocusScope {
                 id: editor
                 implicitWidth: Math.max(16, input.implicitWidth) + 4 + confirmButton.implicitWidth
@@ -71,7 +71,7 @@ QtObject {
                     icon.name: MD.Token.icon.check
                     Accessible.name: qsTr("Apply")
                     onClicked: editor.submit()
-                    MD.ToolTip.visible: hovered
+                    MD.ToolTip.visible: mdState.interactions.hovered
                     MD.ToolTip.text: qsTr("Apply")
                 }
             }

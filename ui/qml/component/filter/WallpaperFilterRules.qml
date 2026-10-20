@@ -61,14 +61,14 @@ MD.VerticalListView {
                 mdState.size: MD.Enum.XS
                 text: qsTranslate("WallpaperFilterDialog", "AND")
                 checked: sectionRow.currentOp !== WC.LogicOp.LOGIC_OP_OR
-                onClicked: root.model.setLogicOpAt(sectionRow.sectionIndex, WC.LogicOp.LOGIC_OP_AND)
+                onCheckedChangeRequested: root.model.setLogicOpAt(sectionRow.sectionIndex, WC.LogicOp.LOGIC_OP_AND)
             }
 
             MD.SegmentedButton {
                 mdState.size: MD.Enum.XS
                 text: qsTranslate("WallpaperFilterDialog", "OR")
                 checked: sectionRow.currentOp === WC.LogicOp.LOGIC_OP_OR
-                onClicked: root.model.setLogicOpAt(sectionRow.sectionIndex, WC.LogicOp.LOGIC_OP_OR)
+                onCheckedChangeRequested: root.model.setLogicOpAt(sectionRow.sectionIndex, WC.LogicOp.LOGIC_OP_OR)
             }
         }
 
@@ -76,7 +76,7 @@ MD.VerticalListView {
             mdState.size: MD.Enum.XS
             icon.name: MD.Token.icon.add
             Accessible.name: qsTr("Add rule")
-            MD.ToolTip.visible: hovered
+            MD.ToolTip.visible: mdState.interactions.hovered
             MD.ToolTip.text: qsTr("Add rule")
             onClicked: root.model.appendRuleInGroup(sectionRow.groupId)
         }
@@ -84,7 +84,7 @@ MD.VerticalListView {
             mdState.size: MD.Enum.XS
             icon.name: MD.Token.icon.delete
             Accessible.name: qsTr("Delete group")
-            MD.ToolTip.visible: hovered
+            MD.ToolTip.visible: mdState.interactions.hovered
             MD.ToolTip.text: qsTr("Delete group")
             onClicked: root.model.deleteGroup(sectionRow.groupId)
         }

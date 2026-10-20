@@ -109,10 +109,9 @@ MD.Dialog {
                         model: root.supportedTypes
                         delegate: MD.FilterChip {
                             required property var modelData
-                            checkable: false
                             text: W.I18n.valueLabel(root.typeLabels, modelData)
-                            checked: (root.skipTypes || []).indexOf(modelData) < 0
-                            onClicked: root.toggleSkip(modelData)
+                            selected: (root.skipTypes || []).indexOf(modelData) < 0
+                            onSelectionRequested: root.toggleSkip(modelData)
                         }
                     }
                 }
@@ -170,10 +169,9 @@ MD.Dialog {
                         model: ratingListQuery.ratings
                         delegate: MD.FilterChip {
                             required property var modelData
-                            checkable: false
                             text: W.I18n.valueLabel(root.valueLabels, modelData)
-                            checked: (root.skipContentRatings || []).indexOf(modelData) < 0
-                            onClicked: root.toggleSkipRating(modelData)
+                            selected: (root.skipContentRatings || []).indexOf(modelData) < 0
+                            onSelectionRequested: root.toggleSkipRating(modelData)
                         }
                     }
                 }
@@ -195,17 +193,17 @@ MD.Dialog {
                     MD.SegmentedButton {
                         text: qsTr("Not hidden")
                         checked: root.hiddenFilter === WC.WallpaperHiddenFilter.WALLPAPER_HIDDEN_FILTER_EXCLUDE
-                        onClicked: root.hiddenFilterSelected(WC.WallpaperHiddenFilter.WALLPAPER_HIDDEN_FILTER_EXCLUDE)
+                        onCheckedChangeRequested: root.hiddenFilterSelected(WC.WallpaperHiddenFilter.WALLPAPER_HIDDEN_FILTER_EXCLUDE)
                     }
                     MD.SegmentedButton {
                         text: qsTr("Hidden only")
                         checked: root.hiddenFilter === WC.WallpaperHiddenFilter.WALLPAPER_HIDDEN_FILTER_ONLY
-                        onClicked: root.hiddenFilterSelected(WC.WallpaperHiddenFilter.WALLPAPER_HIDDEN_FILTER_ONLY)
+                        onCheckedChangeRequested: root.hiddenFilterSelected(WC.WallpaperHiddenFilter.WALLPAPER_HIDDEN_FILTER_ONLY)
                     }
                     MD.SegmentedButton {
                         text: qsTr("All")
                         checked: root.hiddenFilter === WC.WallpaperHiddenFilter.WALLPAPER_HIDDEN_FILTER_INCLUDE
-                        onClicked: root.hiddenFilterSelected(WC.WallpaperHiddenFilter.WALLPAPER_HIDDEN_FILTER_INCLUDE)
+                        onCheckedChangeRequested: root.hiddenFilterSelected(WC.WallpaperHiddenFilter.WALLPAPER_HIDDEN_FILTER_INCLUDE)
                     }
                 }
             }

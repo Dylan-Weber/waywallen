@@ -155,7 +155,7 @@ MD.ItemDelegate {
             MD.InputChip {
                 id: nameChip
                 text: root.currentOption ? root.currentOption.name : qsTr("Filter")
-                onClicked: typeMenu.open()
+                onSelectionRequested: typeMenu.open()
             }
 
             MD.InputChip {
@@ -165,7 +165,7 @@ MD.ItemDelegate {
                     const item = (spec.conditionModel || []).find(e => e.value === spec.condition);
                     return item ? item.name : "";
                 }
-                onClicked: conditionMenu.open()
+                onSelectionRequested: conditionMenu.open()
 
                 MD.Menu {
                     id: conditionMenu

@@ -1246,7 +1246,7 @@ MD.Page {
                         anchors.topMargin: 12
                         z: 10
                         visible: root.selectionActive
-                        checked: true
+                        mdState.selected: true
                         text: String(root.selectedWallpaperCount)
                         icon.name: MD.Token.icon.close
                         mdState.type: MD.Enum.BtElevated

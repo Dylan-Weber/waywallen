@@ -51,7 +51,7 @@ QtObject {
             valueRole: "value"
             currentValue: root.value
             displayText: currentIndex >= 0 ? currentText : qsTr("Select library")
-            onActivated: root.value = currentValue
+            onSelectionChangeRequested: (index, value) => root.value = value
             delegate: MD.MenuItem {
                 required property var model
                 required property int index
@@ -61,13 +61,13 @@ QtObject {
                 highlighted: libraryCombo.highlightedIndex === index
                 focusPolicy: Qt.NoFocus
                 MD.ToolTip.text: model.path ? model.path + " · " + model.pluginName : text
-                MD.ToolTip.visible: hovered
+                MD.ToolTip.visible: mdState.interactions.hovered
             }
             MD.ToolTip.text: {
                 const option = root.libraryOptions[currentIndex];
                 return option && option.path ? option.path + " · " + option.pluginName : displayText;
             }
-            MD.ToolTip.visible: hovered
+            MD.ToolTip.visible: mdState.interactions.hovered
         }
     }
 
