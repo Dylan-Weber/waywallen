@@ -34,36 +34,6 @@ Item {
     signal subscriptionRefreshRequested
     signal subscriptionChangeRequested(bool subscribed)
 
-    function formatBytes(bytes) {
-        let value = Number(bytes ?? 0);
-        if (!(value > 0))
-            return "";
-        const units = ["B", "KB", "MB", "GB", "TB"];
-        let index = 0;
-        while (value >= 1024 && index < units.length - 1) {
-            value /= 1024;
-            ++index;
-        }
-        return value.toFixed(index === 0 ? 0 : 1) + " " + units[index];
-    }
-
-    function formatSize(size) {
-        const text = String(size ?? "").trim();
-        if (text.length === 0)
-            return "";
-        if (/^\d+$/.test(text))
-            return formatBytes(Number(text));
-        const match = text.match(/^([\d.,]+)\s*([KMGT]?B)$/i);
-        if (!match)
-            return text;
-        const value = parseFloat(match[1].replace(/,/g, ""));
-        if (isNaN(value))
-            return text;
-        return match[2].toUpperCase() === "B"
-            ? formatBytes(value)
-            : value.toFixed(1) + " " + match[2].toUpperCase();
-    }
-
     MD.Action {
         id: linkAction
         text: qsTr("Open web page")
@@ -183,7 +153,7 @@ Item {
 
                     readonly property bool hasResolution:
                         Number(root.details?.width ?? 0) > 0 && Number(root.details?.height ?? 0) > 0
-                    readonly property string formattedSize: root.formatSize(root.details?.size)
+                    readonly property string formattedSize: W.I18n.formatSize(root.details?.size)
                     readonly property bool hasSize: formattedSize.length > 0
 
                     MD.Text {
