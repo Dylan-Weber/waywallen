@@ -478,7 +478,7 @@ MD.Page {
                             }
 
                             MD.Text {
-                                text: "h"
+                                text: qsTr("h", "hours")
                                 typescale: MD.Token.typescale.body_small
                                 color: MD.Token.color.on_surface_variant
                             }
@@ -499,7 +499,7 @@ MD.Page {
                             }
 
                             MD.Text {
-                                text: "m"
+                                text: qsTr("m", "minutes")
                                 typescale: MD.Token.typescale.body_small
                                 color: MD.Token.color.on_surface_variant
                             }
@@ -520,7 +520,7 @@ MD.Page {
                             }
 
                             MD.Text {
-                                text: "s"
+                                text: qsTr("s", "seconds")
                                 typescale: MD.Token.typescale.body_small
                                 color: MD.Token.color.on_surface_variant
                             }
