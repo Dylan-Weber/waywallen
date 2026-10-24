@@ -106,7 +106,7 @@
     <name>AddToPlaylistSheetContent</name>
     <message>
         <source>No manual playlists found</source>
-        <translation type="unfinished"></translation>
+        <translation>Обычные плейлисты не найдены</translation>
     </message>
     <message>
         <location filename="../qml/page/wallpaper/AddToPlaylistSheetContent.qml" line="25"/>
@@ -813,35 +813,35 @@
     <name>PlaylistEditPage</name>
     <message>
         <source>Smart playlist</source>
-        <translation type="unfinished"></translation>
+        <translation>Умный плейлист</translation>
     </message>
     <message>
         <source>Wallpapers matching these filters are updated automatically.</source>
-        <translation type="unfinished"></translation>
+        <translation>Обои, подходящие под эти фильтры, обновляются автоматически.</translation>
     </message>
     <message>
         <source>Default order</source>
-        <translation type="unfinished"></translation>
+        <translation>Порядок по умолчанию</translation>
     </message>
     <message>
         <source>Type</source>
-        <translation type="unfinished"></translation>
+        <translation>Тип</translation>
     </message>
     <message>
         <source>Size</source>
-        <translation type="unfinished"></translation>
+        <translation>Размер</translation>
     </message>
     <message>
         <source>Last modified</source>
-        <translation type="unfinished"></translation>
+        <translation>Дата изменения</translation>
     </message>
     <message>
         <source>Reverse order</source>
-        <translation type="unfinished"></translation>
+        <translation>Обратный порядок</translation>
     </message>
     <message>
         <source>Waiting for matching wallpapers</source>
-        <translation type="unfinished"></translation>
+        <translation>Ожидание подходящих обоев</translation>
     </message>
     <message>
         <location filename="../qml/page/PlaylistEditPage.qml" line="14"/>
@@ -943,11 +943,11 @@
     <name>PlaylistListSheet</name>
     <message>
         <source>Create smart playlist</source>
-        <translation type="unfinished"></translation>
+        <translation>Создать умный плейлист</translation>
     </message>
     <message>
         <source>Smart playlist</source>
-        <translation type="unfinished"></translation>
+        <translation>Умный плейлист</translation>
     </message>
     <message>
         <location filename="../qml/page/wallpaper/PlaylistListSheet.qml" line="22"/>
@@ -2774,7 +2774,7 @@ Unsaved frame state may be lost.</source>
     <name>WallpaperFilter</name>
     <message>
         <source>Library</source>
-        <translation type="unfinished"></translation>
+        <translation>Библиотека</translation>
     </message>
     <message>
         <location filename="../qml/component/filter/WallpaperFilter.qml" line="23"/>
@@ -2821,11 +2821,11 @@ Unsaved frame state may be lost.</source>
     <name>WallpaperFilterDialog</name>
     <message>
         <source>Clear rules</source>
-        <translation type="unfinished"></translation>
+        <translation>Очистить правила</translation>
     </message>
     <message>
         <source>Add group</source>
-        <translation type="unfinished"></translation>
+        <translation>Добавить группу</translation>
     </message>
     <message>
         <location filename="../qml/dialog/WallpaperFilterDialog.qml" line="11"/>
@@ -3494,19 +3494,19 @@ Unsaved frame state may be lost.</source>
     <name>LibraryFilter</name>
     <message>
         <source>includes</source>
-        <translation type="unfinished"></translation>
+        <translation>включить</translation>
     </message>
     <message>
         <source>excludes</source>
-        <translation type="unfinished"></translation>
+        <translation>исключить</translation>
     </message>
     <message>
         <source>Unavailable library #%1</source>
-        <translation type="unfinished"></translation>
+        <translation>Недоступная библиотека #%1</translation>
     </message>
     <message>
         <source>Select library</source>
-        <translation type="unfinished"></translation>
+        <translation>Выберите библиотеку</translation>
     </message>
 </context>
 
