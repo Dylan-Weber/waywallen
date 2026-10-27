@@ -1027,7 +1027,7 @@ end
 }
 
 #[test]
-fn call_resolve_relays_directory_item() {
+fn resolve_requires_download_capability() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("resolver.lua");
     std::fs::write(
@@ -1039,6 +1039,42 @@ function M.info()
 end
 M.discover = {}
 function M.discover.search(ctx, params) return { items = {}, has_more = false } end
+function M.discover.resolve(ctx, params) return {} end
+return M
+"#,
+    )
+    .unwrap();
+
+    for version in SUPPORTED_ENTRY_VERSIONS {
+        let error = SourceManager::new()
+            .unwrap()
+            .load_plugin(&path, "test.plugin", "1.0", *version)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("resolve requires download capability"),
+            "entry_version {version}: {error}"
+        );
+    }
+}
+
+#[test]
+fn call_resolve_relays_directory_item() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("resolver.lua");
+    std::fs::write(
+        &path,
+        r#"
+local M = {}
+function M.info()
+    return {
+        name = "resolver",
+        capabilities = { discover = { search = true, download = true, resolve = true } },
+    }
+end
+M.discover = {}
+function M.discover.search(ctx, params) return { items = {}, has_more = false } end
+function M.discover.download(ctx, id) return { wp_type = "scene" } end
 function M.discover.resolve(ctx, params)
     return {
         name = "R " .. params.id,
