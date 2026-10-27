@@ -4713,7 +4713,11 @@ mod tests {
     }
 
     fn reg_iid(name: &str, iid: &str) -> DisplayRegistration {
-        let mut registration = reg(name, 1920, 1080);
+        reg_iid_sized(name, iid, 1920, 1080)
+    }
+
+    fn reg_iid_sized(name: &str, iid: &str, w: u32, h: u32) -> DisplayRegistration {
+        let mut registration = reg(name, w, h);
         registration.instance_id = Some(iid.into());
         registration
     }
@@ -4896,11 +4900,13 @@ mod tests {
             .unwrap();
         let router = Router::new(Arc::new(RendererManager::new_default()));
         router.attach_settings(settings.clone());
+        // Displays as large as their member rects, so registering them
+        // leaves the persisted sizes as they are.
         let left = router
-            .register_display(reg_iid("Left", "display-left"))
+            .register_display(reg_iid_sized("Left", "display-left", 100, 100))
             .await;
         let right = router
-            .register_display(reg_iid("Right", "display-right"))
+            .register_display(reg_iid_sized("Right", "display-right", 200, 100))
             .await;
         let left = router.snapshot_display(left.id).await.unwrap();
         let right = router.snapshot_display(right.id).await.unwrap();
