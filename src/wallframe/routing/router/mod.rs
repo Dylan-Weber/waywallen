@@ -9062,18 +9062,18 @@ mod tests {
             .await,
         );
 
-        let r1 = RendererHandle::test_stub("r1", "scene");
-        r1.test_publish_pool(fake_published_pool(1, 1920, 1080));
+        let (r1, _r1_records) = RendererHandle::test_stub_with_frame_records("r1", "scene");
         mgr.register_test_handle(r1.clone()).await;
         router.register_renderer(r1.clone()).await;
-        let r2 = RendererHandle::test_stub("r2", "scene");
-        r2.test_publish_pool(fake_published_pool(1, 1920, 1080));
+        let (r2, _r2_records) = RendererHandle::test_stub_with_frame_records("r2", "scene");
         mgr.register_test_handle(r2.clone()).await;
         router.register_renderer(r2.clone()).await;
 
-        let a = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
-        let b = router.register_display(reg("DP-1", 1920, 1080)).await;
+        let mut a = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
+        let mut b = router.register_display(reg("DP-1", 1920, 1080)).await;
+        publish_initial_test_frame(&router, &r1, &mut a).await;
         router.relink_displays_to(&[b.id], "r2").await;
+        publish_initial_test_frame(&router, &r2, &mut b).await;
         assert!(!router.is_paused("r2").await);
 
         router
@@ -9108,10 +9108,12 @@ mod tests {
         let mut policy = auto_replay(&[(AutoCondition::Fullscreen, AutoAction::Pause)]);
         policy.resume_delay_ms = 250;
         router.attach_settings(settings_with_auto_replay(policy).await);
-        let (r, _peer) = RendererHandle::test_stub_with_peer("r1", "scene");
+        let (r, _peer, _records) =
+            RendererHandle::test_stub_with_peer_and_frame_records("r1", "scene");
         mgr.register_test_handle(r.clone()).await;
         router.register_renderer(r.clone()).await;
-        let h = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
+        let mut h = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
+        publish_initial_test_frame(&router, &r, &mut h).await;
 
         // Pause.
         router
@@ -9147,10 +9149,12 @@ mod tests {
         let mut policy = auto_replay(&[(AutoCondition::Fullscreen, AutoAction::Pause)]);
         policy.resume_delay_ms = 250;
         router.attach_settings(settings_with_auto_replay(policy).await);
-        let (r, _peer) = RendererHandle::test_stub_with_peer("r1", "scene");
+        let (r, _peer, _records) =
+            RendererHandle::test_stub_with_peer_and_frame_records("r1", "scene");
         mgr.register_test_handle(r.clone()).await;
         router.register_renderer(r.clone()).await;
-        let h = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
+        let mut h = router.register_display(reg("HDMI-A-1", 1920, 1080)).await;
+        publish_initial_test_frame(&router, &r, &mut h).await;
 
         router
             .update_display_window_state(h.id, ar::FLAG_NON_MINIMIZED | ar::FLAG_FULLSCREEN)
