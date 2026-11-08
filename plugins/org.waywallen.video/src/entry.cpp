@@ -34,7 +34,26 @@ struct Options {
     uint32_t    height { 1080 };
     bool        loop_file { true };
     bool        selftest { false };
+    std::string selftest_dump; // selftest: write the converted picture here (PPM)
+    // "height": pick the YUV matrix by the video's height, as Wallpaper Engine does (its plugin passes
+    // --color_matrix height); anything else follows the stream's tag
+    std::string color_matrix;
 };
+
+// The YUV matrix to convert with. `by_height` (the video's height, with --color_matrix height) picks it as Wallpaper
+// Engine plays its video wallpapers: BT.601 up to 576 lines, BT.709 above, whatever the stream's tag says (an HD clip
+// tagged BT.601 and an SD clip tagged BT.709 both follow their height). 0 follows the tag. BT.2020 keeps its tag.
+constexpr wavsen::video::ColorSpace pick_color_space(wavsen::video::ColorSpace tagged, uint32_t by_height) {
+    using wavsen::video::ColorSpace;
+    if (by_height == 0 || tagged == ColorSpace::Bt2020) return tagged;
+    return by_height <= 576 ? ColorSpace::Bt601 : ColorSpace::Bt709;
+}
+static_assert(pick_color_space(wavsen::video::ColorSpace::Bt709, 480) == wavsen::video::ColorSpace::Bt601);
+static_assert(pick_color_space(wavsen::video::ColorSpace::Bt709, 576) == wavsen::video::ColorSpace::Bt601);
+static_assert(pick_color_space(wavsen::video::ColorSpace::Bt601, 600) == wavsen::video::ColorSpace::Bt709);
+static_assert(pick_color_space(wavsen::video::ColorSpace::Bt601, 1080) == wavsen::video::ColorSpace::Bt709);
+static_assert(pick_color_space(wavsen::video::ColorSpace::Bt601, 0) == wavsen::video::ColorSpace::Bt601);
+static_assert(pick_color_space(wavsen::video::ColorSpace::Bt2020, 2160) == wavsen::video::ColorSpace::Bt2020);
 
 struct ParseArgsResult {
     Options options;
@@ -68,7 +87,7 @@ auto as_rstd_str(std::string_view value) -> rstd::ref<rstd::str> {
 
 void write_cli_output(rstd::ref<rstd::str> text, rstd::argparse::OutputTarget::Tag target) {
     FILE* stream = target == rstd::argparse::OutputTarget::Tag::Stderr ? stderr : stdout;
-    std::fwrite(text.data(), 1, text.size().to_primitive(), stream);
+    ::fwrite(text.data(), 1, text.size().to_primitive(), stream);
 }
 
 rstd::prelude::Vec<rstd::ffi::OsString> cli_argv(int argc, char** argv) {
@@ -204,6 +223,17 @@ ParseArgsResult parse_args(int argc, char** argv) {
                             .value_name("VIDEO"_str)
                             .help("Run the standalone decoder self-test"_str));
 
+    auto selftest_dump =
+        command.add_arg(Arg<rstd::string::String>::value("selftest-dump"_str, string_parser())
+                            .long_name("selftest-dump"_str)
+                            .value_name("PPM"_str)
+                            .help("With --selftest, write the converted picture to this file"_str));
+    auto color_matrix =
+        command.add_arg(Arg<rstd::string::String>::value("color_matrix"_str, string_parser())
+                            .long_name("color_matrix"_str)
+                            .value_name("tag|height"_str)
+                            .help("YUV matrix: the stream's tag, or by height (Wallpaper Engine)"_str));
+
     auto built = std::move(command).build();
     if (built.is_err()) {
         rstd_error("waywallen-video-renderer: invalid CLI definition: {}",
@@ -245,6 +275,12 @@ ParseArgsResult parse_args(int argc, char** argv) {
         options.selftest   = true;
         options.video_path = to_std_string(**value);
     }
+    if (auto value = get_arg(*matches, selftest_dump); value.is_some()) {
+        options.selftest_dump = to_std_string(**value);
+    }
+    if (auto value = get_arg(*matches, color_matrix); value.is_some()) {
+        options.color_matrix = to_std_string(**value);
+    }
     options.loop_file = ! matches->contains("no-loop"_str);
     return { .options = std::move(options), .should_run = true };
 }
@@ -269,6 +305,8 @@ wavsen::audio::AudioClientIdentity audio_client_identity() {
 }
 
 struct HostState {
+    // the video's height when the matrix goes by height (--color_matrix height), else 0
+    uint32_t          matrix_height { 0 };
     int               sock { -1 };
     ww_pool_t*        pool { nullptr };
     std::atomic<bool> shutdown { false };
@@ -812,7 +850,8 @@ bool read_retained_frame(wavsen::video::VideoDecoder& decoder, RetainedFrame& fr
 }
 
 auto convert_retained(wavsen::video::YuvToRgba& yuv, const ww_pool_slot_t& slot,
-                      const RetainedFrame& frame) -> rstd::Result<int, wavsen::video::Error> {
+                      const RetainedFrame& frame, uint32_t matrix_height)
+    -> rstd::Result<int, wavsen::video::Error> {
     using namespace wavsen::video;
     const auto cs     = frame.vk      ? frame.vk->info().colorspace
                         : frame.vaapi ? frame.vaapi->view().colorspace
@@ -820,8 +859,9 @@ auto convert_retained(wavsen::video::YuvToRgba& yuv, const ww_pool_slot_t& slot,
     const auto cr     = frame.vk      ? frame.vk->info().color_range
                         : frame.vaapi ? frame.vaapi->view().color_range
                                       : frame.sw.color_range;
-    const auto matrix = make_color_matrix(static_cast<ColorSpace>(cs.to_primitive()),
-                                          static_cast<ColorRange>(cr.to_primitive()));
+    const auto matrix =
+        make_color_matrix(pick_color_space(static_cast<ColorSpace>(cs.to_primitive()), matrix_height),
+                          static_cast<ColorRange>(cr.to_primitive()));
     if (! frame.vk && ! frame.vaapi)
         return yuv.convert_nv12(reinterpret_cast<VkImage>(slot.vk_image),
                                 rstd::u32(slot.width),
@@ -898,7 +938,7 @@ bool apply_video_target(HostState& host, wavsen::video::VideoDecoder& decoder,
             message = "candidate slot unavailable";
             return false;
         }
-        auto converted = convert_retained(yuv, slot, frame);
+        auto converted = convert_retained(yuv, slot, frame, host.matrix_height);
         if (converted.is_err()) {
             message = to_std_string(rstd::move(converted).unwrap_err().message);
             return false;
@@ -949,6 +989,119 @@ bool apply_video_target(HostState& host, wavsen::video::VideoDecoder& decoder,
     std::lock_guard<std::mutex> send_lk(host.send_mu);
     if (ww_bridge_send_render_target_result(host.sock, &result) != 0) signal_shutdown(host);
     return applied;
+}
+
+// --selftest-dump: reads the converted picture back from `image` (RGBA8, left in GENERAL by the conversion) and
+// writes it as a binary PPM, so the renderer's colours can be compared with other players'.
+bool dump_target(const wavsen::video::Producer& producer, VkImage image, uint32_t width, uint32_t height,
+                 const std::string& path) {
+    const auto&    d      = producer.device_dispatch();
+    const VkDevice device = producer.device();
+    const auto     size   = VkDeviceSize(width) * height * 4;
+
+    VkBufferCreateInfo bci {};
+    bci.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bci.size        = size;
+    bci.usage       = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VkBuffer buffer {};
+    if (d.vkCreateBuffer(device, &bci, nullptr, &buffer) != VK_SUCCESS) return false;
+    VkMemoryRequirements mr {};
+    d.vkGetBufferMemoryRequirements(device, buffer, &mr);
+    VkPhysicalDeviceMemoryProperties mp {};
+    producer.instance_dispatch().vkGetPhysicalDeviceMemoryProperties(producer.physical_device(), &mp);
+    uint32_t     type   = std::numeric_limits<uint32_t>::max();
+    const auto   wanted = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    for (uint32_t i = 0; i < mp.memoryTypeCount; ++i) {
+        if ((mr.memoryTypeBits & (1u << i)) && (mp.memoryTypes[i].propertyFlags & wanted) == wanted) {
+            type = i;
+            break;
+        }
+    }
+    VkDeviceMemory memory {};
+    VkMemoryAllocateInfo mai {};
+    mai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    mai.allocationSize  = mr.size;
+    mai.memoryTypeIndex = type;
+    if (type == std::numeric_limits<uint32_t>::max() ||
+        d.vkAllocateMemory(device, &mai, nullptr, &memory) != VK_SUCCESS ||
+        d.vkBindBufferMemory(device, buffer, memory, 0) != VK_SUCCESS) {
+        d.vkDestroyBuffer(device, buffer, nullptr);
+        return false;
+    }
+
+    VkCommandPoolCreateInfo pci {};
+    pci.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pci.queueFamilyIndex = producer.queue_family_index().to_primitive();
+    VkCommandPool pool {};
+    VkCommandBuffer cb {};
+    VkCommandBufferAllocateInfo cai {};
+    cai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    cai.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    cai.commandBufferCount = 1;
+    bool ok = d.vkCreateCommandPool(device, &pci, nullptr, &pool) == VK_SUCCESS;
+    cai.commandPool = pool;
+    ok = ok && d.vkAllocateCommandBuffers(device, &cai, &cb) == VK_SUCCESS;
+    if (ok) {
+        VkCommandBufferBeginInfo begin {};
+        begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        d.vkBeginCommandBuffer(cb, &begin);
+        VkImageMemoryBarrier barrier {};
+        barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.srcAccessMask       = VK_ACCESS_SHADER_WRITE_BIT;
+        barrier.dstAccessMask       = VK_ACCESS_TRANSFER_READ_BIT;
+        barrier.oldLayout           = VK_IMAGE_LAYOUT_GENERAL;
+        barrier.newLayout           = VK_IMAGE_LAYOUT_GENERAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image               = image;
+        barrier.subresourceRange    = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        d.vkCmdPipelineBarrier(cb,
+                               VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                               VK_PIPELINE_STAGE_TRANSFER_BIT,
+                               0,
+                               0,
+                               nullptr,
+                               0,
+                               nullptr,
+                               1,
+                               &barrier);
+        VkBufferImageCopy region {};
+        region.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+        region.imageExtent      = { width, height, 1 };
+        d.vkCmdCopyImageToBuffer(cb, image, VK_IMAGE_LAYOUT_GENERAL, buffer, 1, &region);
+        d.vkEndCommandBuffer(cb);
+        VkSubmitInfo submit {};
+        submit.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submit.commandBufferCount = 1;
+        submit.pCommandBuffers    = &cb;
+        VkFenceCreateInfo fci {};
+        fci.sType     = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        VkFence fence {};
+        ok = d.vkCreateFence(device, &fci, nullptr, &fence) == VK_SUCCESS &&
+             d.vkQueueSubmit(producer.queue(), 1, &submit, fence) == VK_SUCCESS &&
+             d.vkWaitForFences(device, 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max()) == VK_SUCCESS;
+        if (fence) d.vkDestroyFence(device, fence, nullptr);
+    }
+    void* mapped = nullptr;
+    if (ok && d.vkMapMemory(device, memory, 0, size, 0, &mapped) == VK_SUCCESS) {
+        if (FILE* out = ::fopen(path.c_str(), "wb")) {
+            ::fprintf(out, "P6\n%u %u\n255\n", width, height);
+            const auto* rgba = static_cast<const unsigned char*>(mapped);
+            for (VkDeviceSize i = 0; i < VkDeviceSize(width) * height; ++i) ::fwrite(rgba + i * 4, 1, 3, out);
+            ok = ::fclose(out) == 0;
+        } else {
+            ok = false;
+        }
+        d.vkUnmapMemory(device, memory);
+    } else {
+        ok = false;
+    }
+    if (pool) d.vkDestroyCommandPool(device, pool, nullptr);
+    d.vkDestroyBuffer(device, buffer, nullptr);
+    d.vkFreeMemory(device, memory, nullptr);
+    return ok;
 }
 
 int run_selftest(const Options& opt) {
@@ -1002,6 +1155,8 @@ int run_selftest(const Options& opt) {
 
     const auto     kind         = decoder->kind();
     const auto     target_count = kind == wavsen::video::FrameKind::Sw ? 1u : 3u;
+    const uint32_t matrix_height =
+        opt.color_matrix == "height" ? decoder->source_size().height.to_primitive() : 0u;
     VkImage        dst_images[3] {};
     VkDeviceMemory dst_memories[3] {};
     for (uint32_t target_index = 0; target_index < target_count; ++target_index) {
@@ -1069,7 +1224,9 @@ int run_selftest(const Options& opt) {
             if (pull.status != wavsen::video::NextFrame::Ok || pull.frame.is_none()) return 1;
             const auto& info = pull.frame->info();
             const auto  cm   = wavsen::video::make_color_matrix(
-                static_cast<wavsen::video::ColorSpace>(info.colorspace.to_primitive()),
+                pick_color_space(
+                    static_cast<wavsen::video::ColorSpace>(info.colorspace.to_primitive()),
+                    matrix_height),
                 static_cast<wavsen::video::ColorRange>(info.color_range.to_primitive()));
             auto reserved = yuv->reserve({
                 .target = {
@@ -1105,7 +1262,9 @@ int run_selftest(const Options& opt) {
             if (pull.status != wavsen::video::NextFrame::Ok || pull.frame.is_none()) return 1;
             const auto& vaapi = pull.frame->view();
             const auto  cm    = wavsen::video::make_color_matrix(
-                static_cast<wavsen::video::ColorSpace>(vaapi.colorspace.to_primitive()),
+                pick_color_space(
+                    static_cast<wavsen::video::ColorSpace>(vaapi.colorspace.to_primitive()),
+                    matrix_height),
                 static_cast<wavsen::video::ColorRange>(vaapi.color_range.to_primitive()));
             auto reserved = yuv->reserve({
             .target = {
@@ -1157,7 +1316,8 @@ int run_selftest(const Options& opt) {
         }
         if (std::move(fs_res).unwrap() != wavsen::video::NextFrame::Ok) return 1;
         const auto cm = wavsen::video::make_color_matrix(
-            static_cast<wavsen::video::ColorSpace>(frame.colorspace.to_primitive()),
+            pick_color_space(static_cast<wavsen::video::ColorSpace>(frame.colorspace.to_primitive()),
+                             matrix_height),
             static_cast<wavsen::video::ColorRange>(frame.color_range.to_primitive()));
         auto cv_res = yuv->convert_nv12(dst_images[0],
                                         rstd::u32(even_w),
@@ -1185,6 +1345,14 @@ int run_selftest(const Options& opt) {
         (void)producer->device_dispatch().vkDeviceWaitIdle(producer->device());
     }
     (void)yuv->reclaim_submissions();
+    if (sync_fd >= 0 && ! opt.selftest_dump.empty()) {
+        // the last target the loop above converted into
+        const uint32_t last = kind == wavsen::video::FrameKind::Sw ? 0u : (target_count * 3 - 1) % target_count;
+        if (! dump_target(*producer, dst_images[last], even_w, even_h, opt.selftest_dump)) {
+            rstd_error("selftest dump {} failed", opt.selftest_dump);
+            sync_fd = -1;
+        }
+    }
     (void)yuv->invalidate_targets();
     for (uint32_t target_index = 0; target_index < target_count; ++target_index) {
         producer->device_dispatch().vkDestroyImage(
@@ -1377,6 +1545,7 @@ int run(int argc, char** argv) {
                               .height_alignment = 2 };
     }
     host.loop_value.store(opt.loop_file, std::memory_order_release);
+    if (opt.color_matrix == "height") host.matrix_height = native_h;
     rstd_info("waywallen-video-renderer: hwdec={}, decoder kind={}",
               hwdec_label(hwaccel),
               kind_label(decoder->get()->kind()));
@@ -1933,7 +2102,8 @@ int run(int argc, char** argv) {
             break;
         }
         const auto color_matrix = wavsen::video::make_color_matrix(
-            static_cast<wavsen::video::ColorSpace>(cs_id.to_primitive()),
+            pick_color_space(static_cast<wavsen::video::ColorSpace>(cs_id.to_primitive()),
+                             host.matrix_height),
             static_cast<wavsen::video::ColorRange>(cr_id.to_primitive()));
         rstd::Result<int, wavsen::video::Error> cv_res = rstd::Ok(-1);
         RetainedFrame                           next_retained;
