@@ -161,6 +161,10 @@ fn spawn_wallpaper_recall(state: Arc<DaemonContext>) {
                                     tasks::TaskKind::Apply,
                                     task_name,
                                     async move {
+                                        if crate::safe_mode::restore_blocked() {
+                                            log::info!("safe mode: not recalling wallpaper {wp_id}");
+                                            return Ok(());
+                                        }
                                         log::info!(
                                             "wallpaper recall: applying {wp_id} to {} display(s)",
                                             ids.len()

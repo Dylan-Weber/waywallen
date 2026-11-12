@@ -574,6 +574,10 @@ pub struct GlobalSettings {
     pub hide_tray_icon: bool,
 
     pub debug_logging_enabled: bool,
+
+    /// After an unclean exit do not restore the last wallpaper until the
+    /// user picks one (config.toml only).
+    pub safe_mode: bool,
 }
 
 impl Default for GlobalSettings {
@@ -605,6 +609,7 @@ impl Default for GlobalSettings {
             autostart_enabled: false,
             hide_tray_icon: false,
             debug_logging_enabled: false,
+            safe_mode: true,
         }
     }
 }

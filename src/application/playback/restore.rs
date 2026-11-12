@@ -24,6 +24,10 @@ fn group_displays_by_playlist(
 }
 
 async fn activate_groups(app: &Arc<DaemonContext>, groups: HashMap<i64, Vec<DisplayId>>) {
+    if crate::safe_mode::restore_blocked() {
+        log::info!("safe mode: not restoring playlists");
+        return;
+    }
     for (pid, display_ids) in groups {
         if display_ids.is_empty() {
             continue;
@@ -171,6 +175,9 @@ pub async fn watch_hotplug(app: Arc<DaemonContext>) {
                             app.settings.display_prefs(&key).and_then(|p| p.active_playlist_id)
                         };
                         let Some(pid) = pid else { continue };
+                        if crate::safe_mode::restore_blocked() {
+                            continue;
+                        }
                         match super::attach_playlist(&app, s.id, pid).await {
                             Ok(true) => {}
                             Ok(false) => queue_pending(&mut pending, pid, s.id, SETTLE),

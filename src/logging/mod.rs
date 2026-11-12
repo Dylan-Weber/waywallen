@@ -1,6 +1,6 @@
 //! Daemon logging with reloadable filtering and daily files.
 
-mod paths;
+pub(crate) mod paths;
 mod policy;
 
 pub use paths::log_dir;

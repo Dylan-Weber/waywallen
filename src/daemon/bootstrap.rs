@@ -136,6 +136,12 @@ pub async fn run(cli: DaemonConfig) -> anyhow::Result<()> {
     let settings_store =
         settings::SettingsStore::load_or_default(settings::default_config_path()).await;
     crate::logging::apply_debug_setting(settings_store.global().debug_logging_enabled);
+    let safe = crate::safe_mode::begin(settings_store.global().safe_mode);
+    if safe.restore_blocked {
+        log::warn!(
+            "safe mode: the previous run did not exit cleanly; not restoring the last wallpaper until one is chosen"
+        );
+    }
     renderer_mgr
         .initialize_renderer_log_level(settings_store.global().debug_logging_enabled)
         .await;
