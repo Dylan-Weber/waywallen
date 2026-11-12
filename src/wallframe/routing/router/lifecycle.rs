@@ -696,12 +696,32 @@ impl Router {
             effect.cause.as_str(),
             effect.process_generation
         );
+        // the renderer is told the size of the output it is shown on (the first live link's display)
+        let mut spawn_request = effect.spawn_request;
+        {
+            let inner = self.inner.lock().await;
+            let extent = inner
+                .table
+                .links_for_renderer(&renderer_id)
+                .iter()
+                .filter(|link| link.enabled)
+                .filter_map(|link| inner.displays.get(&link.display_id))
+                .map(|display| (display.info.metrics.width, display.info.metrics.height))
+                .find(|(width, height)| *width > 0 && *height > 0);
+            if let Some((width, height)) = extent {
+                crate::wallframe::renderer_manager::set_output_extent(
+                    &mut spawn_request.settings,
+                    width,
+                    height,
+                );
+            }
+        }
         match self
             .mgr
             .spawn_for_generation(
                 renderer_id.clone(),
                 effect.process_generation,
-                effect.spawn_request,
+                spawn_request,
             )
             .await
         {
