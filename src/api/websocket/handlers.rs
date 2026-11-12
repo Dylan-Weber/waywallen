@@ -2057,11 +2057,19 @@ pub(super) async fn dispatch_inner(
                 }
             }
             let mut apply_failures: Vec<String> = Vec::new();
+            // live renderers whose identity settings changed: they only read those at start
+            let mut respawn_ids: Vec<String> = Vec::new();
             let registry = state.renderer_manager.registry_snapshot();
             let live_ids = state.renderer_manager.list().await;
             for def in registry.all_renderers() {
                 let old_kv = previous_settings.resolved_renderer_settings(def);
                 let new_kv = current_settings.resolved_renderer_settings(def);
+                let identity_changed = def.settings.iter().any(|(key, setting)| {
+                    setting.identity
+                        && new_kv
+                            .get(key)
+                            .is_some_and(|value| old_kv.get(key) != Some(value))
+                });
                 let kv: Vec<(String, String)> = def
                     .settings
                     .keys()
@@ -2090,8 +2098,26 @@ pub(super) async fn dispatch_inner(
                         .await
                     {
                         apply_failures.push(format!("{id} ({}): {e}", def.name));
+                    } else if identity_changed {
+                        respawn_ids.push(id.clone());
                     }
                 }
+            }
+            if !respawn_ids.is_empty() {
+                // in the background: a restart waits for the new renderer's first frame
+                let router = state.router.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = router
+                        .restart_renderers_orderly(
+                            &respawn_ids,
+                            std::time::Duration::from_secs(1),
+                            crate::application::APPLY_FIRST_FRAME_TIMEOUT,
+                        )
+                        .await
+                    {
+                        log::warn!("restart after identity setting change: {e}");
+                    }
+                });
             }
             // Push the merged post-write state to all WS subscribers so
             // a second UI bound to the same daemon stays in sync.

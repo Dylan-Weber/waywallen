@@ -39,7 +39,7 @@ mod subscriptions;
 mod writer;
 
 use handshake::validate_renderer_spawn_version;
-pub(crate) use handshake::{build_init_msg, run_init_handshake};
+pub(crate) use handshake::{build_init_msg, run_init_handshake, set_output_extent};
 use reader::run_reader;
 use reported_state::apply_renderer_state_patch;
 #[cfg(test)]
