@@ -5,16 +5,27 @@
 //!
 //! A `running` marker is written at startup and removed on a clean shutdown;
 //! finding it at startup means the previous run did not finish cleanly.
+//! The marker is also removed once a run has stayed up for [`SETTLE_AFTER`]
+//! (and written again when a wallpaper is chosen), so only an exit while a
+//! wallpaper is still starting counts: a later crash, a power cut or a
+//! suspend that never resumes is not a crash loop and must not cost the user
+//! their wallpaper at the next login.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::OnceLock;
+use std::time::Duration;
 
 const RUNNING: &str = "running";
 const BLOCKED: &str = "restore-blocked";
 
+/// A run that stays up this long was not taken down by loading its wallpaper.
+pub const SETTLE_AFTER: Duration = Duration::from_secs(120);
+
 static RESTORE_BLOCKED: AtomicBool = AtomicBool::new(false);
 static STATE_DIR: OnceLock<PathBuf> = OnceLock::new();
+/// Bumped by every arm, so only the latest arm's timer settles.
+static ARM_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Outcome {
@@ -51,6 +62,16 @@ pub fn end_in(dir: &Path) {
     let _ = std::fs::remove_file(dir.join(RUNNING));
 }
 
+/// The run outlived the crash-loop window: how it ends no longer matters.
+pub fn settle_in(dir: &Path) {
+    let _ = std::fs::remove_file(dir.join(RUNNING));
+}
+
+/// A wallpaper is starting: an exit before it settles counts as unclean again.
+pub fn arm_in(dir: &Path) -> std::io::Result<()> {
+    std::fs::write(dir.join(RUNNING), std::process::id().to_string())
+}
+
 /// The user chose a wallpaper: restoring works again from the next start.
 pub fn unblock_in(dir: &Path) {
     let _ = std::fs::remove_file(dir.join(BLOCKED));
@@ -72,7 +93,23 @@ pub fn begin(enabled: bool) -> Outcome {
         }
     });
     RESTORE_BLOCKED.store(outcome.restore_blocked, Ordering::SeqCst);
+    settle_later(dir);
     outcome
+}
+
+fn settle_later(dir: PathBuf) {
+    let generation = ARM_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+    let spawned = std::thread::Builder::new()
+        .name("safe-mode-settle".into())
+        .spawn(move || {
+            std::thread::sleep(SETTLE_AFTER);
+            if ARM_GENERATION.load(Ordering::SeqCst) == generation {
+                settle_in(&dir);
+            }
+        });
+    if let Err(e) = spawned {
+        log::warn!("safe mode: cannot start the settle timer: {e}");
+    }
 }
 
 pub fn end() {
@@ -88,6 +125,10 @@ pub fn user_chose_wallpaper() {
     }
     if let Some(dir) = STATE_DIR.get() {
         unblock_in(dir);
+        if let Err(e) = arm_in(dir) {
+            log::warn!("safe mode: cannot use {}: {e}", dir.display());
+        }
+        settle_later(dir.clone());
     }
 }
 
@@ -130,6 +171,27 @@ mod tests {
         unblock_in(d.path());
         end_in(d.path());
         assert!(!begin_in(d.path(), true).unwrap().restore_blocked);
+    }
+
+    #[test]
+    fn an_exit_after_settling_does_not_block() {
+        let d = tempfile::tempdir().unwrap();
+        begin_in(d.path(), true).unwrap();
+        settle_in(d.path());
+        // power cut or a suspend that never resumed: no end_in
+        let o = begin_in(d.path(), true).unwrap();
+        assert_eq!(o, Outcome { unclean_exit: false, restore_blocked: false });
+    }
+
+    #[test]
+    fn choosing_a_wallpaper_arms_the_check_again() {
+        let d = tempfile::tempdir().unwrap();
+        begin_in(d.path(), true).unwrap();
+        settle_in(d.path());
+        arm_in(d.path()).unwrap();
+        // the chosen wallpaper takes the daemon down before settling
+        let o = begin_in(d.path(), true).unwrap();
+        assert!(o.unclean_exit && o.restore_blocked);
     }
 
     #[test]
