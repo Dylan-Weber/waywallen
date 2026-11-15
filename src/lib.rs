@@ -11,6 +11,7 @@ pub mod model;
 pub mod playback;
 pub mod plugin;
 pub mod probe;
+pub mod safe_mode;
 pub mod settings;
 pub mod system;
 pub mod tasks;

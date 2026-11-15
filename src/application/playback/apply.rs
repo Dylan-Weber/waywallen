@@ -374,6 +374,9 @@ pub async fn apply_wallpaper(
     id: &str,
     request: ApplyRequest,
 ) -> Result<ApplyResult> {
+    if request.source.is_user_choice() {
+        crate::safe_mode::user_chose_wallpaper();
+    }
     let entry = match id.parse::<i64>() {
         Ok(iid) => repo::get_entry(&app.db, iid).await?,
         Err(_) => None,

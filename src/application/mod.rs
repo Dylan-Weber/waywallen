@@ -69,6 +69,18 @@ impl ApplySource {
         }
     }
 
+    /// The user picked this wallpaper, as opposed to a restore or rotation.
+    pub fn is_user_choice(self) -> bool {
+        matches!(
+            self,
+            Self::UserWallpaper
+                | Self::UserQueueStep
+                | Self::UserPlaylistActivation
+                | Self::UserPlaylistJump
+                | Self::UserPlaylistStep
+        )
+    }
+
     pub fn preempts_pending_start(self) -> bool {
         !matches!(
             self,

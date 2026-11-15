@@ -145,6 +145,7 @@ where
     state.renderer_manager.shutdown().await;
     state.settings.stop_writer().await;
     state.settings.flush_now().await;
+    crate::safe_mode::end();
 
     if let Err(error) = crate::system::dbus::emit_shutting_down(&dbus).await {
         log::warn!("DBus ShuttingDown emit failed: {error}");
